@@ -53,7 +53,17 @@ kernel, image outputs). Both upstreams are MIT.
   Rust with bindgen: drags clang, compiler-rt and a target python into
   the build. Biggest remaining trim; would need a static passwd
   generator for image mode.
+- nixpkgs' kernel postInstall runs `xargs rm` on `modules.order`;
+  with `MODULES=y` and nothing `=m` that list is empty and the build
+  dies with "rm: missing operand" (exit 123). `modules/kernel` patches
+  in `xargs -r` and throws at eval if the upstream line changes.
 - Finit itself pulls procps (sysctl).
+- The qemu-direct runner uses a headless single-target QEMU override;
+  stock `buildPackages.qemu` dragged in ~2600 derivations (gtk, SDL,
+  gstreamer, and gobject-introspection cross-built for the guest).
+- finix's security wrappers (setuid mount/umount) read `unsecvars.h`
+  from the glibc source; that derivation goes through a cross glibc
+  (`glibc-nolibgcc-<target>`), so a musl build compiles glibc for it.
 - nixpkgs' skaware builder (execline, mdevd, s6...) calls a bare
   `pkg-config`, which doesn't exist in a cross stdenv (only the
   target-prefixed wrapper does). `overlays/micro.nix` puts a shim on
@@ -76,8 +86,9 @@ Read job outcomes from the job log, not from indirect signals.
 - Evaluates in both update modes; the qemu-aarch64 kernel `.config`
   builds clean (581 `=y`, no `=m`).
 - Trims: 114 -> 94 target packages in the qemu-aarch64 image closure.
-- First full cross build handed to CI; outcome not yet confirmed.
-  **Nothing has booted yet.**
+- First full CI build failed in the kernel (empty `modules.order`,
+  see Gotchas); fixed, the qemu-aarch64 kernel builds locally. Runner
+  and disk image not yet confirmed by CI. **Nothing has booted yet.**
 
 ## Next
 

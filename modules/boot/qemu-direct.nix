@@ -13,6 +13,16 @@ let
   kernel = config.boot.kernelPackages.kernel;
   hostPlatform = pkgs.stdenv.hostPlatform;
 
+  # headless, single-target QEMU. Stock `qemu` builds every target plus
+  # gtk/SDL/spice/audio (thousands of derivations, some cross-built for
+  # the guest arch via gobject-introspection). Not `minimal`: that drops
+  # libslirp, which `-nic user` needs.
+  qemu = bpkgs.qemu.override {
+    nixosTestRunner = true;
+    brlttySupport = false;
+    hostCpuTargets = [ "${hostPlatform.qemuArch}-softmmu" ];
+  };
+
   machineArgs =
     if hostPlatform.isAarch64 then
       [
@@ -74,7 +84,7 @@ in
         '') config.micro.boot.slots}
         *) echo "unknown slot $slot" >&2; exit 1 ;;
       esac
-      exec ${bpkgs.qemu}/bin/qemu-system-${hostPlatform.qemuArch} \
+      exec ${qemu}/bin/qemu-system-${hostPlatform.qemuArch} \
         ${lib.escapeShellArgs machineArgs} \
         -m ${toString cfg.memory} -nographic \
         -kernel ${kernel}/${kernel.target} \
