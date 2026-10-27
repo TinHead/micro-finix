@@ -50,6 +50,14 @@ in
     {
       services.mdevd.enable = lib.mkDefault true;
 
+      # finit's pidfile plugin depends on its netlink plugin
+      # (plugins/pidfile.c `.depends`); finix copies pidfile.so into the
+      # initrd but not netlink.so, so stage 1 logged "Failed loading
+      # plugin .../netlink.so". 70 KB, deps (libcap, musl) already there.
+      boot.initrd.contents = [
+        { source = "${config.finit.package}/lib/finit/plugins/netlink.so"; }
+      ];
+
       environment.systemPackages = [
         (lib.lowPrio pkgs.busybox)
       ]

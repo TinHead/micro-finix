@@ -108,8 +108,10 @@ Read job outcomes from the job log, not from indirect signals.
   on `/var/lib`. The factory image carries the store in both slots; a
   slot without a squashfs falls back to the other one, and
   `/dev/micro/slot` records the slot actually booted.
-- Known noise: finit fails to load its `netlink.so` plugin (missing
-  from the package); harmless so far.
+- finit's pidfile plugin depends on its netlink plugin, but finix's
+  initrd ships only pidfile.so and bootmisc.so, so stage 1 logged
+  "Failed loading plugin .../netlink.so". The profile adds netlink.so
+  to `boot.initrd.contents` (70 KB).
 
 ## Next
 
