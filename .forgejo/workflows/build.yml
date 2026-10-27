@@ -17,7 +17,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        device: [qemu-aarch64]
+        device: [qemu-aarch64, qemu-mipsel]
     steps:
       - uses: actions/checkout@v4
 

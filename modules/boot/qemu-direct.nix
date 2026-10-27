@@ -10,7 +10,6 @@
 let
   cfg = config.micro.boot.qemu;
   bpkgs = pkgs.buildPackages;
-  kernel = config.boot.kernelPackages.kernel;
   hostPlatform = pkgs.stdenv.hostPlatform;
 
   # headless, single-target QEMU. Stock `qemu` builds every target plus
@@ -53,6 +52,14 @@ let
       [
         "-machine"
         "virt"
+      ]
+    else if hostPlatform.isMips32 then
+      [
+        "-machine"
+        "malta"
+        "-cpu"
+        # no FPU, like MT7621's 1004Kc; matches soft-float userlands
+        "24Kc"
       ]
     else if hostPlatform.isx86_64 then
       [
@@ -98,7 +105,7 @@ in
       exec ${qemu}/bin/qemu-system-${hostPlatform.qemuArch} \
         ${lib.escapeShellArgs machineArgs} \
         -m ${toString cfg.memory} -nographic \
-        -kernel ${kernel}/${kernel.target} \
+        -kernel ${config.micro.boot.kernelFile} \
         -initrd ${config.boot.initrd.package}/initrd \
         -append "$cmdline" \
         -drive if=virtio,format=raw,file="$state/disk.img" \
