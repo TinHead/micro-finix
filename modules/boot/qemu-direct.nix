@@ -17,11 +17,22 @@ let
   # gtk/SDL/spice/audio (thousands of derivations, some cross-built for
   # the guest arch via gobject-introspection). Not `minimal`: that drops
   # libslirp, which `-nic user` needs.
-  qemu = bpkgs.qemu.override {
-    nixosTestRunner = true;
-    brlttySupport = false;
-    hostCpuTargets = [ "${hostPlatform.qemuArch}-softmmu" ];
-  };
+  qemu =
+    (bpkgs.qemu.override {
+      nixosTestRunner = true;
+      brlttySupport = false;
+      hostCpuTargets = [ "${hostPlatform.qemuArch}-softmmu" ];
+    }).overrideAttrs
+      (old: {
+        # upstream's postInstall only links qemu-kvm to the build
+        # machine's own qemu-system-*, which isn't built here (dangling
+        # symlink fails noBrokenSymlinks); the runner calls the guest
+        # binary directly
+        postInstall = lib.throwIfNot (
+          lib.trim old.postInstall
+          == "ln -s $out/bin/qemu-system-${bpkgs.stdenv.hostPlatform.qemuArch} $out/bin/qemu-kvm"
+        ) "qemu-direct: upstream qemu postInstall changed; re-check the qemu-kvm workaround" "";
+      });
 
   machineArgs =
     if hostPlatform.isAarch64 then

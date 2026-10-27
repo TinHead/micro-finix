@@ -36,6 +36,6 @@ jobs:
       - name: push to attic
         if: github.event_name == 'push'
         run: |
-          attic login darker https://cache.darker.ro "$ATTIC_TOKEN" >/dev/null
+          attic login darker "${ATTIC_ENDPOINT:-https://cache.darker.ro}" "$ATTIC_TOKEN" >/dev/null
           # -j 2: attic's SQLite index has a single writer
           attic push -j 2 darker:darker $(cat out-paths)
