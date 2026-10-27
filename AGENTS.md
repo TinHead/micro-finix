@@ -115,8 +115,10 @@ Read job outcomes from the job log, not from indirect signals.
 
 ## Next
 
-1. Data persistence across slots (write on a, read on b) and closure
-   mode in QEMU; image-mode boot on both slots is done.
+1. Closure mode in QEMU. Image mode is verified: both slots boot,
+   slot fallback works, `/var/lib` survives a slot switch, and
+   `poweroff` unmounts cleanly. The guest clock starts at 2000
+   (`RTC_HCTOSYS` is off).
 2. `rpi-zero2w` device + Pi firmware boot backend (FAT: firmware,
    `config.txt`, kernel, dtb, per-slot cmdline; check whether the Zero
    firmware supports `tryboot`/`autoboot.txt` for A/B, else a small
