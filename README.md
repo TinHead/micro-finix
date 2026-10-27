@@ -86,3 +86,19 @@ symbols (plus `modules/kernel/base.nix`) are enabled. The build fails
 if Kconfig drops a requested symbol, which usually means a missing
 parent menu (`BLK_DEV`, `NET_CORE`, `MISC_FILESYSTEMS`, ...). Inspect
 the result with `config.micro.kernel.configfile`.
+
+## Trims
+
+`overlays/micro.nix` (package level) and `modules/profile.nix` (option
+defaults) remove what small boards don't need: PAM (and with it audit,
+db), libcap's Go bindings, fuse, kbd/console setup, desktop setuid
+wrappers, and finix's base userland (busybox replaces it; see
+`micro.excludePackages`). Image mode also stubs the switch-inhibitor
+check, dropping jq. Known remaining weight: userborn (Rust; its build
+pulls bindgen/clang), which finix hard-wires for user creation.
+
+## Binary cache
+
+The flake advertises `cache.darker.ro/darker`; CI pushes every build
+from `main` there. The cache is only reachable from the home network,
+so builds elsewhere fall back to building locally.

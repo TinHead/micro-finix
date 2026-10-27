@@ -1,19 +1,90 @@
-# Defaults for small systems. Everything is mkDefault so a config can
-# opt back in.
-{ config, lib, ... }:
+# Defaults for small systems. Everything is mkDefault (or listed in an
+# option) so a config can opt back in.
+{
+  config,
+  pkgs,
+  lib,
+  ...
+}:
 let
   cfg = config.micro;
 in
 {
-  options.micro.console = lib.mkOption {
-    type = with lib.types; nullOr str;
-    default = null;
-    example = "ttyAMA0";
-    description = "Serial console device; gets the kernel console and a getty.";
+  options = {
+    micro.console = lib.mkOption {
+      type = with lib.types; nullOr str;
+      default = null;
+      example = "ttyAMA0";
+      description = "Serial console device; gets the kernel console and a getty.";
+    };
+
+    micro.excludePackages = lib.mkOption {
+      type = with lib.types; listOf str;
+      default = [
+        "acl"
+        "attr"
+        "findutils"
+        "gawk"
+        "gnugrep"
+        "less"
+        "libcap"
+        "ncurses"
+        "procps"
+        "time"
+        "which"
+      ];
+      description = ''
+        Package names removed from {option}`environment.systemPackages`
+        (finix's base set). busybox provides the userland instead.
+        Set to `[ ]` to keep finix's defaults.
+      '';
+    };
+
+    # second declaration: finix declares the option, this adds the filter
+    environment.systemPackages = lib.mkOption {
+      apply = lib.filter (p: !(lib.elem (lib.getName p) cfg.excludePackages));
+    };
   };
 
   config = lib.mkMerge [
-    { services.mdevd.enable = lib.mkDefault true; }
+    {
+      services.mdevd.enable = lib.mkDefault true;
+
+      environment.systemPackages = [ (lib.lowPrio pkgs.busybox) ];
+
+      # serial-only boards: no keymaps, fonts or VESA blanking (drops kbd)
+      hardware.console.enable = lib.mkDefault false;
+
+      # login and passwd use /etc/shadow directly (shadow is built
+      # without PAM in overlays/micro.nix); drops linux-pam, audit, db
+      security.pam.enable = lib.mkDefault false;
+
+      boot.supportedFilesystems.fuse.enable = lib.mkDefault false;
+
+      # setuid helpers for multi-user desktops
+      security.wrappers =
+        lib.genAttrs
+          [
+            "su"
+            "sg"
+            "newgrp"
+            "newuidmap"
+            "newgidmap"
+            "passwd"
+          ]
+          (_: {
+            enable = lib.mkDefault false;
+          })
+        // {
+          unix_chkpwd.enable = lib.mkDefault config.security.pam.enable;
+        };
+    }
+
+    # finix writes /etc/pam.d even with PAM off
+    (lib.mkIf (!config.security.pam.enable) {
+      security.pam.services = lib.mkForce { };
+    })
+
     (lib.mkIf (cfg.console != null) {
       boot.kernelParams = [ "console=${cfg.console},115200" ];
       services.getty.ttys = lib.mkDefault [ cfg.console ];

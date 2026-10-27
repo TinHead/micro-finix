@@ -129,6 +129,9 @@ in
         "a"
         "b"
       ];
+
+      # nothing switches in place in image mode; drops jq
+      system.build.checkSwitchInhibitors = lib.mkForce "${pkgs.coreutils}/bin/true";
       system.build.storeImage = storeImage;
     })
 

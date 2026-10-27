@@ -28,7 +28,11 @@ let
   pkgs = import nixpkgs {
     localSystem = buildSystem;
     crossSystem = dev.platform;
-    overlays = [ finix.overlays.without-systemd ] ++ (dev.overlays or [ ]);
+    overlays = [
+      finix.overlays.without-systemd
+      (import ../overlays/micro.nix)
+    ]
+    ++ (dev.overlays or [ ]);
   };
 
   eval = lib.evalModules {

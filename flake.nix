@@ -1,4 +1,9 @@
 {
+  nixConfig = {
+    extra-substituters = [ "https://cache.darker.ro/darker" ];
+    extra-trusted-public-keys = [ "darker:HE7ECkTcAxepTNmEqloGLMnfGbzOmuvSdzZBEOgx+KY=" ];
+  };
+
   description = "micro-finix: finix (finit as pid 1, NixOS-shaped modules) built Liminix-style for small hardware";
 
   inputs = {
