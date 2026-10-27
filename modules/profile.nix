@@ -69,11 +69,6 @@ in
         lib.filterAttrs (_: u: u.enable && lib.types.shellPackage.check u.shell) config.users.users
       );
 
-      # busybox ash instead of bash. finix sets root's shell at normal
-      # priority, hence 99; pick another root shell with mkForce.
-      users.defaultUserShell = lib.mkDefault pkgs.busybox;
-      users.users.root.shell = lib.mkOverride 99 pkgs.busybox;
-
       # serial-only boards: no keymaps, fonts or VESA blanking (drops kbd)
       hardware.console.enable = lib.mkDefault false;
 

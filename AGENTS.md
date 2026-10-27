@@ -58,12 +58,22 @@ kernel, image outputs). Both upstreams are MIT.
   dies with "rm: missing operand" (exit 123). `modules/kernel` patches
   in `xargs -r` and throws at eval if the upstream line changes.
 - Finit itself pulls procps (sysctl).
-- finix hard-sets root's shell to `pkgs.bashInteractive` and writes
+- finix sets root's shell to `pkgs.bashInteractive` and writes
   `/run/current-system/sw/bin/bash` into passwd without installing it,
-  so login failed ("Cannot execute .../bin/bash"). The profile defaults
-  root and normal users to busybox ash and puts every user's shell
-  package on the system path. bash-interactive stays in the closure
-  only for finix's `switch-to-configuration` shebang.
+  so login failed ("Cannot execute .../bin/bash"). The profile puts
+  every user's shell package on the system path; root keeps bash
+  (already in the closure for `switch-to-configuration`).
+- `overlays/micro.nix` applies to `buildPackages` too. Trims of
+  packages the native stdenv bootstrap uses (xz, findutils, ...) are
+  gated on `cross` there, or they rebuild the native toolchain (a
+  dry-run showed 746 derivations incl. GHC, LLVM, Rust).
+- Closure trims (119.0 -> 83.4 MiB), all in `overlays/micro.nix` and
+  target-only: e2fsprogs without libarchive (dropped openssl, libxml2;
+  libarchive only serves `mke2fs -d`), `util-linuxMinimal` = the
+  system util-linux (was a second copy via e2fsprogs' libuuid and
+  finix's `logger`), `--disable-nls` for e2fsprogs/findutils/xz, and
+  `unixtools.*` wrappers without man pages (they pulled whole procps
+  and util-linux `-man` outputs).
 - finix sets PATH only through pam_env. With PAM off, busybox login
   hardcodes `/sbin:/bin:/usr/sbin:/usr/bin`, so a login shell found no
   commands. The profile sets `environment.variables.PATH` (written to
@@ -102,8 +112,9 @@ Read job outcomes from the job log, not from indirect signals.
 - Trims: 114 -> 94 target packages in the qemu-aarch64 image closure.
 - First green CI build (runner + disk image) after fixing the kernel
   (empty `modules.order`), the musl glibc wrappers and the runner's
-  QEMU (see Gotchas). Toplevel closure: 119.0 MiB.
-- Image mode boots in QEMU on both slots to a busybox ash login:
+  QEMU (see Gotchas). Toplevel closure: 119.0 MiB, trimmed to 83.4 MiB
+  (110 paths); about 15 MiB of RAM in use after login.
+- Image mode boots in QEMU on both slots to a bash login:
   tmpfs `/`, squashfs store from the slot's partition, data partition
   on `/var/lib`. The factory image carries the store in both slots; a
   slot without a squashfs falls back to the other one, and
