@@ -42,6 +42,15 @@ kernel, image outputs). Both upstreams are MIT.
 - **Router class: NAND (>= 128 MiB) with A/B image mode on UBI.**
   16-32 MiB NOR routers are out of scope (the compressed store alone
   is ~23 MiB).
+- **Small base, expanded per device class.** The base (finit,
+  busybox, update modes, storage/boot backends) stays minimal and
+  headless; heavier capabilities (Wi-Fi client/AP, graphics, input,
+  power management for tablets/phones such as the tf700) come as
+  opt-in profiles and finix module imports on top, never as defaults.
+  Candidate devices beyond Pi/routers: tf700 (Tegra 3, armv7; mainline
+  U-Boot from microSD, so `block` layout + a generic U-Boot extlinux
+  backend). Open risk for graphical devices: nixpkgs' musl cross
+  builds of the display stack are untested.
 - **Both update modes stay supported**: `image` (tmpfs root, A/B
   read-only squashfs store, `micro.slot=a|b`) and `closure` (writable
   ext4 root, switch). Don't drop one to simplify.
