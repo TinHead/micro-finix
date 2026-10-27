@@ -1,0 +1,154 @@
+# Minimal kernel built from an attrset of Kconfig symbols (Liminix-style).
+#
+# The config starts from `allnoconfig` and only what is listed here is
+# switched on, so devices list their drivers explicitly. The build fails
+# if Kconfig silently drops a requested symbol (unmet dependency, typo).
+{
+  config,
+  pkgs,
+  lib,
+  ...
+}:
+let
+  cfg = config.micro.kernel;
+
+  # conditionalConfig: { USB = { USB_XHCI_HCD = "y"; }; } applies the inner
+  # set only when USB is enabled
+  merged = lib.foldlAttrs (
+    acc: name: value:
+    if (acc ? ${name}) && acc.${name} != "n" then acc // value else acc
+  ) cfg.config cfg.conditionalConfig;
+
+  kconfigLine =
+    name: value: if value == "n" then "# CONFIG_${name} is not set" else "CONFIG_${name}=${value}";
+
+  fragment = pkgs.writeText "micro-kconfig" (lib.concatLines (lib.mapAttrsToList kconfigLine merged));
+
+  configfile = pkgs.stdenv.mkDerivation {
+    pname = "micro-linux-config";
+    inherit (cfg) src version;
+    patches = map (p: p.patch) cfg.patches;
+
+    depsBuildBuild = [ pkgs.buildPackages.stdenv.cc ];
+    nativeBuildInputs = with pkgs.buildPackages; [
+      bison
+      flex
+      bc
+      perl
+    ];
+
+    dontConfigure = true;
+    buildPhase = ''
+      runHook preBuild
+      make ARCH=${pkgs.stdenv.hostPlatform.linuxArch} \
+        CROSS_COMPILE=${pkgs.stdenv.cc.targetPrefix} \
+        HOSTCC=$CC_FOR_BUILD \
+        KCONFIG_ALLCONFIG=${fragment} \
+        allnoconfig
+      runHook postBuild
+    '';
+
+    # not checkPhase: stdenv skips it when cross-compiling
+    postBuild = ''
+      lost=0
+      while IFS= read -r line; do
+        case "$line" in
+          "# CONFIG_"*" is not set")
+            sym=''${line#\# }; sym=''${sym% is not set}
+            if grep -qE "^$sym=(y|m)$" .config; then
+              echo "kconfig: $sym requested off but is on"; lost=1
+            fi
+            ;;
+          CONFIG_*)
+            if ! grep -qxF "$line" .config; then
+              echo "kconfig: lost $line (got: $(grep -E "^(# )?''${line%%=*}[= ]" .config || echo unset))"; lost=1
+            fi
+            ;;
+        esac
+      done < ${fragment}
+      if [ $lost = 1 ]; then
+        echo "requested kernel options were dropped: unmet dependencies or unknown symbols"
+        ${if cfg.strict then "exit 1" else "true"}
+      fi
+    '';
+
+    installPhase = "cp .config $out";
+  };
+
+  kernel = pkgs.linuxKernel.manualConfig {
+    inherit (cfg) src version;
+    inherit configfile;
+    kernelPatches = cfg.patches;
+    config = lib.mapAttrs' (n: v: lib.nameValuePair "CONFIG_${n}" v) (
+      lib.filterAttrs (_: v: v != "n") merged
+    );
+  };
+in
+{
+  imports = [ ./base.nix ];
+
+  options.micro.kernel = {
+    enable = lib.mkEnableOption "the micro kernel builder (otherwise finix's boot.kernelPackages is used)";
+
+    src = lib.mkOption {
+      type = lib.types.path;
+      default = pkgs.linux.src;
+      defaultText = lib.literalExpression "pkgs.linux.src";
+      description = "Kernel source tree or tarball.";
+    };
+
+    version = lib.mkOption {
+      type = lib.types.str;
+      default = pkgs.linux.version;
+      defaultText = lib.literalExpression "pkgs.linux.version";
+    };
+
+    patches = lib.mkOption {
+      type = with lib.types; listOf attrs;
+      default = [ ];
+      description = "Kernel patches, in nixpkgs `kernelPatches` form (`{ name; patch; }`).";
+    };
+
+    config = lib.mkOption {
+      type = with lib.types; attrsOf nonEmptyStr;
+      default = { };
+      example = {
+        TMPFS = "y";
+        CMDLINE = ''"console=ttyS0"'';
+      };
+      description = ''
+        Kconfig symbols without the `CONFIG_` prefix, applied on top of
+        `allnoconfig`. String values carry their own quotes.
+      '';
+    };
+
+    conditionalConfig = lib.mkOption {
+      type = with lib.types; attrsOf (attrsOf nonEmptyStr);
+      default = { };
+      description = "Symbols applied only when the named symbol is enabled.";
+    };
+
+    strict = lib.mkOption {
+      type = lib.types.bool;
+      default = true;
+      description = "Fail the build when a requested symbol does not survive Kconfig.";
+    };
+
+    configfile = lib.mkOption {
+      type = lib.types.package;
+      readOnly = true;
+      default = configfile;
+      description = "The generated .config (for inspection).";
+    };
+  };
+
+  config = lib.mkIf cfg.enable {
+    boot.kernelPackages = pkgs.linuxPackagesFor kernel;
+
+    # everything the micro kernel needs is built in; finix's stock lists
+    # name PC modules that do not exist here
+    boot.kernelModules = lib.mkForce [ ];
+    boot.initrd.kernelModules = lib.mkForce [ ];
+    boot.initrd.availableKernelModules = lib.mkForce [ ];
+  };
+}
