@@ -75,14 +75,29 @@ let
     installPhase = "cp .config $out";
   };
 
-  kernel = pkgs.linuxKernel.manualConfig {
-    inherit (cfg) src version;
-    inherit configfile;
-    kernelPatches = cfg.patches;
-    config = lib.mapAttrs' (n: v: lib.nameValuePair "CONFIG_${n}" v) (
-      lib.filterAttrs (_: v: v != "n") merged
-    );
-  };
+  # nixpkgs' kernel postInstall pipes modules.order into a bare
+  # `xargs rm`; with MODULES=y but nothing =m the list is empty and rm
+  # fails ("missing operand", exit 123). Add -r; the throw flags when
+  # upstream changes the line so this can be dropped.
+  emptyModulesRm = "| xargs -d'\\n' rm";
+  fixEmptyModules =
+    old:
+    lib.throwIfNot (lib.hasInfix emptyModulesRm old.postInstall)
+      "micro.kernel: nixpkgs kernel postInstall changed; re-check the empty modules.order workaround"
+      {
+        postInstall = builtins.replaceStrings [ emptyModulesRm ] [ "| xargs -r -d'\\n' rm" ] old.postInstall;
+      };
+
+  kernel =
+    (pkgs.linuxKernel.manualConfig {
+      inherit (cfg) src version;
+      inherit configfile;
+      kernelPatches = cfg.patches;
+      config = lib.mapAttrs' (n: v: lib.nameValuePair "CONFIG_${n}" v) (
+        lib.filterAttrs (_: v: v != "n") merged
+      );
+    }).overrideAttrs
+      fixEmptyModules;
 in
 {
   imports = [ ./base.nix ];
