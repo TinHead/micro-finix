@@ -103,11 +103,22 @@ Read job outcomes from the job log, not from indirect signals.
 - First green CI build (runner + disk image) after fixing the kernel
   (empty `modules.order`), the musl glibc wrappers and the runner's
   QEMU (see Gotchas). Toplevel closure: 119.0 MiB.
-- Boots in QEMU (image mode) on both slots to a busybox ash login:
+- Image mode boots in QEMU on both slots to a busybox ash login:
   tmpfs `/`, squashfs store from the slot's partition, data partition
   on `/var/lib`. The factory image carries the store in both slots; a
   slot without a squashfs falls back to the other one, and
-  `/dev/micro/slot` records the slot actually booted.
+  `/dev/micro/slot` records the slot actually booted. `/var/lib`
+  survives a slot switch and `poweroff` unmounts cleanly.
+- Closure mode boots in QEMU: writable ext4 `/` on the root
+  partition, `/nix/store` a read-only bind of it, and both `/` and
+  `/var/lib` survive a reboot. The root filesystem is grown to its
+  partition at image build time
+  (`micro.storage.partitions.<name>.growFilesystem`, on by default for
+  the closure root). Closure mode isn't a flake output yet; build it
+  with `extendModules { modules = [ { micro.update.mode = "closure"; } ]; }`
+  on the example system.
+- The guest clock starts at 2000 (`RTC_HCTOSYS` is off); fine for
+  testing.
 - finit's pidfile plugin depends on its netlink plugin, but finix's
   initrd ships only pidfile.so and bootmisc.so, so stage 1 logged
   "Failed loading plugin .../netlink.so". The profile adds netlink.so
@@ -115,16 +126,12 @@ Read job outcomes from the job log, not from indirect signals.
 
 ## Next
 
-1. Closure mode in QEMU. Image mode is verified: both slots boot,
-   slot fallback works, `/var/lib` survives a slot switch, and
-   `poweroff` unmounts cleanly. The guest clock starts at 2000
-   (`RTC_HCTOSYS` is off).
-2. `rpi-zero2w` device + Pi firmware boot backend (FAT: firmware,
+1. `rpi-zero2w` device + Pi firmware boot backend (FAT: firmware,
    `config.txt`, kernel, dtb, per-slot cmdline; check whether the Zero
    firmware supports `tryboot`/`autoboot.txt` for A/B, else a small
    selector).
-3. Wi-Fi client via finix's iwd + brcmfmac firmware.
-4. Optional `micro.kernel.tiny` preset (EXPERT on, optimise for size,
+2. Wi-Fi client via finix's iwd + brcmfmac firmware.
+3. Optional `micro.kernel.tiny` preset (EXPERT on, optimise for size,
    per-device `NR_CPUS`, no VT/KALLSYMS).
-5. Replace userborn in image mode.
-6. Closure-mode update tooling (copy closure + switch, GC).
+4. Replace userborn in image mode.
+5. Closure-mode update tooling (copy closure + switch, GC).

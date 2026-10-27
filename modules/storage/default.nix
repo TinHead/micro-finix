@@ -80,6 +80,16 @@ in
                 default = null;
                 description = "Filesystem image written into the partition; null leaves it empty.";
               };
+              growFilesystem = lib.mkOption {
+                type = lib.types.bool;
+                default = false;
+                description = ''
+                  Grow the (ext2/3/4) filesystem image to the full partition
+                  size when assembling the disk image. Image builders size
+                  filesystems to their contents; without this the rest of
+                  the partition stays unused.
+                '';
+              };
               device = lib.mkOption {
                 type = lib.types.str;
                 readOnly = true;

@@ -174,6 +174,9 @@ in
           index = 2;
           size = storage.rootSize;
           image = rootImage;
+          # updates copy whole closures onto /; make-ext4-fs sizes the
+          # filesystem to the initial closure only
+          growFilesystem = lib.mkDefault true;
         };
         data.index = 3;
       };

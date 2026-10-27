@@ -1,5 +1,6 @@
 # Assemble the partition images into one raw disk image (MBR, 1 MiB
-# aligned), checking each filesystem image fits its partition.
+# aligned), checking each filesystem image fits its partition and
+# growing those marked `growFilesystem` to the partition size.
 {
   config,
   pkgs,
@@ -14,7 +15,10 @@ in
   system.build.diskImage =
     bpkgs.runCommand "micro-disk.img"
       {
-        nativeBuildInputs = [ bpkgs.util-linux ];
+        nativeBuildInputs = [
+          bpkgs.util-linux
+        ]
+        ++ lib.optional (lib.any (p: p.growFilesystem && p.image != null) parts) bpkgs.e2fsprogs;
       }
       ''
         set -eu
@@ -30,8 +34,8 @@ in
             ''}
             layout="$layout''${off}MiB,${toString p.size}MiB,${p.type}
           "
-            echo "${toString p.index} $off ${toString p.size} ${
-              if p.image == null then "-" else p.image
+            echo "${toString p.index} $off ${toString p.size} ${if p.image == null then "-" else p.image} ${
+              if p.growFilesystem then "grow" else "-"
             }" >> plan
             off=$((off + ${toString p.size}))
         '') parts}
@@ -39,9 +43,17 @@ in
         truncate -s "''${off}M" $out
         printf 'label: dos\n%s' "$layout" | sfdisk --quiet $out
 
-        while read -r idx start size img; do
+        while read -r idx start size img grow; do
           [ "$img" = - ] && continue
+          if [ "$grow" = grow ]; then
+            # resize a sparse copy; the store image stays untouched
+            cp --sparse=always "$img" part.img
+            chmod u+w part.img
+            resize2fs -f part.img "''${size}M"
+            img=part.img
+          fi
           dd if="$img" of=$out bs=1M seek="$start" conv=notrunc,sparse status=none
+          rm -f part.img
         done < plan
       '';
 }
