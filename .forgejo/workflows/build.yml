@@ -1,0 +1,41 @@
+# Cross-build each device's example system (disk image + QEMU runner) on
+# the big host-mode runner. Pushes to main also push the result to attic
+# so later builds and local `run-micro-vm` substitute instead of building.
+# The first build compiles the whole musl userland and the kernel.
+name: build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: ${{ matrix.device }}
+    runs-on: nixos-big
+    strategy:
+      fail-fast: false
+      matrix:
+        device: [qemu-aarch64]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: build
+        run: |
+          nix build --print-build-logs --no-link --print-out-paths \
+            ".#legacyPackages.x86_64-linux.${{ matrix.device }}.config.system.build.runner" \
+            ".#legacyPackages.x86_64-linux.${{ matrix.device }}.config.system.build.diskImage" \
+            | tee out-paths
+
+      - name: closure size
+        run: |
+          nix path-info -Sh \
+            "$(nix eval --raw ".#legacyPackages.x86_64-linux.${{ matrix.device }}.config.system.topLevel")"
+
+      - name: push to attic
+        if: github.event_name == 'push'
+        run: |
+          attic login darker https://cache.darker.ro "$ATTIC_TOKEN" >/dev/null
+          # -j 2: attic's SQLite index has a single writer
+          attic push -j 2 darker:darker $(cat out-paths)
