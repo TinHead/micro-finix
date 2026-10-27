@@ -73,7 +73,7 @@ in
 
       fileSystems.${cfg.dataMountPoint} = {
         device = storage.partitions.data.device;
-        fsType = "ext4";
+        fsType = storage.dataFsType;
         neededForBoot = true;
       };
     }
@@ -141,16 +141,15 @@ in
       # boots from a fresh flash; updates then overwrite the inactive one
       micro.storage.partitions = {
         root-a = {
-          index = 2;
+          order = 20;
           size = storage.slotSize;
           image = storeImage;
         };
         root-b = {
-          index = 3;
+          order = 30;
           size = storage.slotSize;
           image = storeImage;
         };
-        data.index = 4;
       };
 
       micro.boot.slots = [
@@ -171,14 +170,13 @@ in
 
       micro.storage.partitions = {
         root = {
-          index = 2;
+          order = 20;
           size = storage.rootSize;
           image = rootImage;
           # updates copy whole closures onto /; make-ext4-fs sizes the
           # filesystem to the initial closure only
           growFilesystem = lib.mkDefault true;
         };
-        data.index = 3;
       };
 
       micro.boot.slots = [ null ];

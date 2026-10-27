@@ -1,43 +1,47 @@
-# Storage layout. Only `block` (SD card, eMMC, virtio disk) exists so
-# far; raw-flash layouts (UBI, JFFS2) would add their own backends and
-# declare which update modes they support.
+# Storage: where the store slots, root and data live on the boot medium.
+# The generic part declares partitions by name and order; a layout
+# backend (only `block` so far: SD card, eMMC, virtio disk; later e.g.
+# `ubi` for raw NAND) numbers them, names their devices, picks the data
+# filesystem, builds the flashable image and states which update modes
+# it can carry.
 {
   config,
-  pkgs,
   lib,
   ...
 }:
 let
   cfg = config.micro.storage;
 
-  # /dev/vda -> /dev/vda2, /dev/mmcblk0 -> /dev/mmcblk0p2
-  partitionPath =
-    index:
+  # partition names in on-medium order (ties broken by name)
+  ordered = lib.sort (
+    a: b:
     let
-      last = lib.substring (lib.stringLength cfg.device - 1) 1 cfg.device;
-      sep = if builtins.match "[0-9]" last != null then "p" else "";
+      oa = cfg.partitions.${a}.order;
+      ob = cfg.partitions.${b}.order;
     in
-    "${cfg.device}${sep}${toString index}";
+    oa < ob || (oa == ob && a < b)
+  ) (lib.attrNames cfg.partitions);
 in
 {
-  imports = [ ./disk-image.nix ];
+  imports = [ ./block.nix ];
 
   options.micro.storage = {
     layout = lib.mkOption {
       type = lib.types.enum [ "block" ];
       default = "block";
+      description = "Storage backend; see modules/storage/<layout>.nix.";
     };
 
     device = lib.mkOption {
       type = lib.types.str;
       example = "/dev/mmcblk0";
-      description = "Whole-disk device the system boots from, as the kernel names it.";
+      description = "Whole-device name the system boots from, as the kernel names it.";
     };
 
     bootSize = lib.mkOption {
       type = lib.types.ints.positive;
       default = 64;
-      description = "Boot (FAT) partition size in MiB.";
+      description = "Boot partition size in MiB (backends that need one).";
     };
 
     slotSize = lib.mkOption {
@@ -58,14 +62,40 @@ in
       description = "Initial data partition size in MiB.";
     };
 
+    dataFsType = lib.mkOption {
+      type = lib.types.str;
+      description = "Filesystem of the data partition; the layout sets the default.";
+    };
+
+    supportedUpdateModes = lib.mkOption {
+      type = with lib.types; listOf str;
+      internal = true;
+      description = "Update modes the layout can carry (set by the layout).";
+    };
+
+    devicePath = lib.mkOption {
+      type = with lib.types; functionTo str;
+      internal = true;
+      description = "Partition number -> device node (set by the layout).";
+    };
+
     partitions = lib.mkOption {
-      description = "Partitions of the boot disk, filled in by the update mode and boot backend.";
+      description = "Partitions of the boot medium, filled in by the update mode and boot backend.";
       type = lib.types.attrsOf (
         lib.types.submodule (
-          { config, ... }:
+          { name, config, ... }:
           {
             options = {
-              index = lib.mkOption { type = lib.types.ints.positive; };
+              order = lib.mkOption {
+                type = lib.types.int;
+                description = "Position on the medium relative to other partitions (lower first).";
+              };
+              index = lib.mkOption {
+                type = lib.types.ints.positive;
+                readOnly = true;
+                default = 1 + lib.lists.findFirstIndex (n: n == name) null ordered;
+                description = "Partition number, assigned from `order`.";
+              };
               size = lib.mkOption {
                 type = lib.types.ints.positive;
                 description = "MiB";
@@ -73,7 +103,7 @@ in
               type = lib.mkOption {
                 type = lib.types.str;
                 default = "83";
-                description = "MBR partition type id.";
+                description = "Partition type id (MBR) for the block layout.";
               };
               image = lib.mkOption {
                 type = with lib.types; nullOr package;
@@ -93,7 +123,8 @@ in
               device = lib.mkOption {
                 type = lib.types.str;
                 readOnly = true;
-                default = partitionPath config.index;
+                default = cfg.devicePath config.index;
+                description = "Device node of the partition on the running system.";
               };
             };
           }
@@ -104,34 +135,15 @@ in
 
   config = {
     micro.storage.partitions.data = {
+      order = lib.mkDefault 90;
       size = lib.mkDefault cfg.dataSize;
-      image = lib.mkDefault (
-        pkgs.buildPackages.runCommand "micro-data.img"
-          { nativeBuildInputs = [ pkgs.buildPackages.e2fsprogs ]; }
-          ''
-            truncate -s ${toString cfg.dataSize}M $out
-            mkfs.ext4 -q -F -L micro-data $out
-          ''
-      );
     };
 
-    assertions =
-      let
-        indexes = lib.mapAttrsToList (_: p: p.index) cfg.partitions;
-      in
-      [
-        {
-          assertion = lib.length indexes == lib.length (lib.unique indexes);
-          message = "micro.storage.partitions: duplicate partition index";
-        }
-        {
-          assertion = lib.sort lib.lessThan indexes == lib.range 1 (lib.length indexes);
-          message = "micro.storage.partitions: indexes must be contiguous from 1";
-        }
-        {
-          assertion = lib.all (i: i <= 4) indexes;
-          message = "micro.storage.partitions: MBR allows at most 4 primary partitions";
-        }
-      ];
+    assertions = [
+      {
+        assertion = lib.elem config.micro.update.mode cfg.supportedUpdateModes;
+        message = "micro.storage.layout ${cfg.layout} does not support update mode ${config.micro.update.mode}";
+      }
+    ];
   };
 }
