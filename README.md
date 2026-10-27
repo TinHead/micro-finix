@@ -23,9 +23,10 @@ flake.nix               lib.microSystem, devices, example builds
 lib/micro-system.nix    evaluates finix + micro modules on a cross pkgs set
 modules/kernel/         Kconfig attrset -> allnoconfig .config -> kernel
 modules/update.nix      image (A/B squashfs) vs closure (ext4) mode
-modules/storage/        partition table + raw disk image assembly
-modules/boot/           boot backends (boot partition contents, runners)
-devices/<name>/         platform triple + hardware module
+modules/storage/        storage layouts: partitions by name/order; block.nix = MBR disk image
+modules/boot/           boot backends (kernel artifact, optional boot partition, runners)
+devices/<name>/         platform (crossSystem) + hardware module
+                        (qemu-aarch64, qemu-mipsel = MT7621 stand-in)
 examples/               example system configurations
 ```
 

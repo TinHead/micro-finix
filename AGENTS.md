@@ -6,8 +6,10 @@ the gotchas, and where the work stands.
 
 ## Why this exists
 
-Target: small boards (first: Raspberry Pi Zero 2 W, later the ARMv6
-Zero, and other hardware). NixOS is too heavy there, and trimming NixOS
+Target: small devices of several kinds: boards (first: Raspberry Pi
+Zero 2 W, later the ARMv6 Zero), NAND routers that run OpenWrt today
+(first: the home MT7621 routers, EdgeRouter X and DAP-X1860), and
+other hardware. NixOS is too heavy there, and trimming NixOS
 was tried before and did not work out -- don't propose a debloated
 NixOS as the answer.
 
@@ -26,7 +28,20 @@ kernel, image outputs). Both upstreams are MIT.
   update are pluggable backends selected by options (finix's
   `providers.*` contract pattern). Nothing outside a backend mentions a
   specific board or firmware (e.g. `config.txt` stays in the Pi boot
-  backend). The Pi is just the first device.
+  backend). The Pi is just the first device. Concretely:
+  - device = `platform` (nixpkgs crossSystem incl. gcc arch/float) +
+    kernel symbols + backend choices (`devices/<name>`);
+  - boot backend (`modules/boot/<backend>.nix`) picks the kernel
+    artifact (`micro.boot.kernelFile`), whether it needs a FAT boot
+    partition (`micro.boot.partition.enable`) and what goes on it;
+  - storage layout (`modules/storage/<layout>.nix`) numbers the
+    partitions (declared by name + `order`), names their devices,
+    picks the data filesystem, builds the flashable image and lists
+    the update modes it carries. Only `block` (MBR) exists; raw NAND
+    routers need a `ubi` layout (image mode only).
+- **Router class: NAND (>= 128 MiB) with A/B image mode on UBI.**
+  16-32 MiB NOR routers are out of scope (the compressed store alone
+  is ~23 MiB).
 - **Both update modes stay supported**: `image` (tmpfs root, A/B
   read-only squashfs store, `micro.slot=a|b`) and `closure` (writable
   ext4 root, switch). Don't drop one to simplify.
@@ -134,15 +149,49 @@ Read job outcomes from the job log, not from indirect signals.
   initrd ships only pidfile.so and bootmisc.so, so stage 1 logged
   "Failed loading plugin .../netlink.so". The profile adds netlink.so
   to `boot.initrd.contents` (70 KB).
+- Backends split out (boot partition opt-in, partitions by `order`,
+  `block` layout in its own file); the QEMU disks lost their unused FAT
+  partition (image: vda1/vda2 slots, vda3 data; closure: vda1 root,
+  vda2 data). Both modes re-tested in QEMU after the split.
+- `qemu-mipsel` (Malta, 24Kc, MIPS32r2 soft-float, 256 MiB) added as
+  the MT7621 stand-in; evaluates, first build handed to CI (needs a
+  mipsel GCC, rustc for userborn, the target Python). Not booted yet.
 
 ## Next
 
-1. `rpi-zero2w` device + Pi firmware boot backend (FAT: firmware,
+1. `qemu-mipsel` green in CI and booting; if rustc/userborn can't be
+   built for mipsel (Rust's MIPS targets are tier 3), replacing
+   userborn becomes a requirement, not a trim.
+2. `rpi-zero2w` device + Pi firmware boot backend (FAT: firmware,
    `config.txt`, kernel, dtb, per-slot cmdline; check whether the Zero
    firmware supports `tryboot`/`autoboot.txt` for A/B, else a small
    selector).
-2. Wi-Fi client via finix's iwd + brcmfmac firmware.
-3. Optional `micro.kernel.tiny` preset (EXPERT on, optimise for size,
+3. Wi-Fi client via finix's iwd + brcmfmac firmware.
+4. First router: the spare DAP-X1860 A1 (same model as the home APs,
+   5 GHz faulty, free to flash; the live APs stay untouched). Read
+   from ap1001: MT7621 (1004Kc, 4 threads), 249 MB RAM, NAND with 128
+   KiB erase blocks; mtd3 "kernel" 8 MiB raw (bootloader loads it),
+   mtd8 "ubi" 100 MiB (800 PEBs, ~97 MiB usable). Needs a MT7621
+   device, a `ubi` storage layout (A/B squashfs volumes + UBIFS data)
+   and a U-Boot boot backend (uImage/FIT via `micro.boot.kernelFile`).
+   Constraints: only one kernel partition, so kernel+initrd aren't A/B
+   (fixed kernel that selects the slot, or a loader from UBI; check
+   whether its U-Boot reads UBI); kernel+initrd must fit 8 MiB (initrd
+   is 5.6 MiB today); AP Wi-Fi (MT7915) needs mt76 + firmware +
+   hostapd, not iwd. Recovery (OpenWrt wiki, toh/d-link/dap-x1860):
+   bootloader web recovery (hold reset while powering on until the
+   orange LED blinks, http://192.168.0.50 from 192.168.0.x, Chromium
+   only, flashes any unencrypted image; back to stock with the
+   decrypted `kernel_DAP-X1860.bin`) and serial (115200 8N1 3.3 V;
+   1 Tx, 2 GND, 3 Rx, 4 Vcc; U-Boot menu has "Load image and run" and
+   a console, so test kernels can run from RAM without flashing).
+   From the OEM bootlog: U-Boot ELX-v1.0.4 boots a legacy uImage,
+   LZMA, from NAND 0x180000 (mtd3) to RAM 0x80010000, kernel load
+   address 0x81001000; console=ttyS0,115200. The NAND uses MediaTek
+   NMBM (bad-block remapping); OpenWrt carries kernel patches for it.
+   Check whether mainline handles NMBM and the MT7621 NAND controller,
+   or which OpenWrt ramips patches the device kernel needs.
+5. Optional `micro.kernel.tiny` preset (EXPERT on, optimise for size,
    per-device `NR_CPUS`, no VT/KALLSYMS/INPUT, PCI only where needed).
    The kernel is already `allnoconfig` plus listed symbols (581 `=y`,
    no `=m`; no AX25/WLAN/USB/sound/DRM unless a device asks), so this
@@ -150,5 +199,5 @@ Read job outcomes from the job log, not from indirect signals.
    `NR_CPUS=512`, `KALLSYMS`, `VT`, `INPUT`, and arm64's allnoconfig
    platform defaults. Keep it a preset devices opt into, each symbol
    still overridable (`mkDefault`, `"n"`).
-4. Replace userborn in image mode.
-5. Closure-mode update tooling (copy closure + switch, GC).
+6. Replace userborn in image mode.
+7. Closure-mode update tooling (copy closure + switch, GC).
