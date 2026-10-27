@@ -20,4 +20,25 @@ final: prev: {
 
   # fuse2fs only
   e2fsprogs = prev.e2fsprogs.override { withFuse = false; };
+
+  # skaware builds hard-code a bare `pkg-config` (configure's
+  # --with-pkgconfig, execline's postInstall), but in a cross stdenv
+  # only the target-prefixed wrapper is on PATH. Shim the bare name.
+  skawarePackages = prev.skawarePackages.overrideScope (
+    sfinal: sprev: {
+      buildPackage =
+        args:
+        (sprev.buildPackage args).overrideAttrs (
+          old:
+          final.lib.optionalAttrs (final.stdenv.buildPlatform != final.stdenv.hostPlatform) {
+            preConfigure = ''
+              mkdir -p "$NIX_BUILD_TOP/.pkg-config-shim"
+              ln -s "$(command -v "$PKG_CONFIG")" "$NIX_BUILD_TOP/.pkg-config-shim/pkg-config"
+              export PATH="$NIX_BUILD_TOP/.pkg-config-shim:$PATH"
+            ''
+            + (old.preConfigure or "");
+          }
+        );
+    }
+  );
 }

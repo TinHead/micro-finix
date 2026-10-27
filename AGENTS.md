@@ -54,6 +54,10 @@ kernel, image outputs). Both upstreams are MIT.
   the build. Biggest remaining trim; would need a static passwd
   generator for image mode.
 - Finit itself pulls procps (sysctl).
+- nixpkgs' skaware builder (execline, mdevd, s6...) calls a bare
+  `pkg-config`, which doesn't exist in a cross stdenv (only the
+  target-prefixed wrapper does). `overlays/micro.nix` puts a shim on
+  PATH for all skaware packages.
 - `finix.cachix.org` holds only finix's native glibc builds -- none of
   the musl cross paths. `cache.darker.ro` is private (not publicly reachable).
 - Eval-checked (not built) for `pkgsCross.muslpi` (ARMv6 Zero) too:
