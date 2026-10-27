@@ -143,6 +143,12 @@ Read job outcomes from the job log, not from indirect signals.
    selector).
 2. Wi-Fi client via finix's iwd + brcmfmac firmware.
 3. Optional `micro.kernel.tiny` preset (EXPERT on, optimise for size,
-   per-device `NR_CPUS`, no VT/KALLSYMS).
+   per-device `NR_CPUS`, no VT/KALLSYMS/INPUT, PCI only where needed).
+   The kernel is already `allnoconfig` plus listed symbols (581 `=y`,
+   no `=m`; no AX25/WLAN/USB/sound/DRM unless a device asks), so this
+   trims generic options, not drivers: the 8.0 MiB `Image` carries
+   `NR_CPUS=512`, `KALLSYMS`, `VT`, `INPUT`, and arm64's allnoconfig
+   platform defaults. Keep it a preset devices opt into, each symbol
+   still overridable (`mkDefault`, `"n"`).
 4. Replace userborn in image mode.
 5. Closure-mode update tooling (copy closure + switch, GC).
