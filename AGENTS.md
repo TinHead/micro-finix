@@ -61,9 +61,10 @@ kernel, image outputs). Both upstreams are MIT.
 - The qemu-direct runner uses a headless single-target QEMU override;
   stock `buildPackages.qemu` dragged in ~2600 derivations (gtk, SDL,
   gstreamer, and gobject-introspection cross-built for the guest).
-- finix's security wrappers (setuid mount/umount) read `unsecvars.h`
-  from the glibc source; that derivation goes through a cross glibc
-  (`glibc-nolibgcc-<target>`), so a musl build compiles glibc for it.
+- finix's security wrappers take `unsecvars.h` from `srcOnly
+  pkgs.glibc`, which on musl cross-builds glibc and fails. The profile
+  turns every wrapper off (finix's own mount/umount included) and
+  asserts none is enabled on musl.
 - nixpkgs' skaware builder (execline, mdevd, s6...) calls a bare
   `pkg-config`, which doesn't exist in a cross stdenv (only the
   target-prefixed wrapper does). `overlays/micro.nix` puts a shim on

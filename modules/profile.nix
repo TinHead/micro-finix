@@ -77,7 +77,28 @@ in
           })
         // {
           unix_chkpwd.enable = lib.mkDefault config.security.pam.enable;
-        };
+        }
+        # finix always wraps mount and umount. Every wrapper takes
+        # unsecvars.h from `srcOnly pkgs.glibc`, which on musl means
+        # cross-building glibc (fails), so musl drops them; glibc keeps them.
+        // lib.genAttrs [ "mount" "umount" ] (_: {
+          enable = lib.mkDefault (!pkgs.stdenv.hostPlatform.isMusl);
+        });
+
+      assertions =
+        let
+          enabled = lib.attrNames (lib.filterAttrs (_: w: w.enable) config.security.wrappers);
+        in
+        [
+          {
+            assertion = !pkgs.stdenv.hostPlatform.isMusl || enabled == [ ];
+            message = ''
+              security.wrappers ${lib.concatStringsSep ", " enabled} enabled on a musl
+              system: finix builds every wrapper against `srcOnly pkgs.glibc`, which
+              cross-builds glibc with the musl toolchain and fails.
+            '';
+          }
+        ];
     }
 
     # finix writes /etc/pam.d even with PAM off
