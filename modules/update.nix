@@ -92,7 +92,10 @@ in
       };
 
       # resolve the slot from the command line before the store is mounted;
-      # finix's wait-dev task polls until /dev/micro/store appears
+      # finix's wait-dev task polls until /dev/micro/store appears. A slot
+      # without a squashfs (never written, or a failed update) falls back
+      # to the other one instead of a reboot loop. The slot actually
+      # booted is recorded in /dev/micro/slot.
       boot.initrd.finit.tasks.micro-slot = {
         conditions = deviceConditions;
         script = ''
@@ -100,17 +103,42 @@ in
           for o in $(cat /proc/cmdline); do
             case "$o" in micro.slot=*) slot=''${o#micro.slot=} ;; esac
           done
+          dev_of() {
+            case "$1" in
+              a) echo ${storage.partitions.root-a.device} ;;
+              b) echo ${storage.partitions.root-b.device} ;;
+            esac
+          }
+          # squashfs superblock magic; waits a little for the partition node
+          is_store() {
+            i=0
+            while [ ! -b "$1" ] && [ $i -lt 10 ]; do sleep 1; i=$((i + 1)); done
+            [ "$(head -c 4 "$1" 2>/dev/null)" = hsqs ]
+          }
           case "$slot" in
-            a) dev=${storage.partitions.root-a.device} ;;
-            b) dev=${storage.partitions.root-b.device} ;;
+            a) other=b ;;
+            b) other=a ;;
             *) echo "micro-slot: unknown slot '$slot'" >&2; exit 1 ;;
           esac
+          dev=$(dev_of "$slot")
+          if ! is_store "$dev"; then
+            echo "micro-slot: slot $slot ($dev) has no store image, falling back to slot $other" >&2
+            slot=$other
+            dev=$(dev_of "$slot")
+            if ! is_store "$dev"; then
+              echo "micro-slot: slot $slot ($dev) has no store image either" >&2
+              exit 1
+            fi
+          fi
           mkdir -p /dev/micro
           ln -sfn "$dev" /dev/micro/store
+          echo "$slot" > /dev/micro/slot
           echo "micro-slot: booting slot $slot from $dev"
         '';
       };
 
+      # the factory image carries the same store in both slots, so either
+      # boots from a fresh flash; updates then overwrite the inactive one
       micro.storage.partitions = {
         root-a = {
           index = 2;
@@ -120,7 +148,7 @@ in
         root-b = {
           index = 3;
           size = storage.slotSize;
-          image = null;
+          image = storeImage;
         };
         data.index = 4;
       };

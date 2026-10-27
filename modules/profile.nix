@@ -50,7 +50,21 @@ in
     {
       services.mdevd.enable = lib.mkDefault true;
 
-      environment.systemPackages = [ (lib.lowPrio pkgs.busybox) ];
+      environment.systemPackages = [
+        (lib.lowPrio pkgs.busybox)
+      ]
+      # finix writes /run/current-system/sw<shellPath> into passwd but
+      # never installs the shell; put every user's shell package on the
+      # path so the login shell exists (lowPrio: busybox must not shadow
+      # coreutils & co.)
+      ++ lib.mapAttrsToList (_: u: lib.lowPrio u.shell) (
+        lib.filterAttrs (_: u: u.enable && lib.types.shellPackage.check u.shell) config.users.users
+      );
+
+      # busybox ash instead of bash. finix sets root's shell at normal
+      # priority, hence 99; pick another root shell with mkForce.
+      users.defaultUserShell = lib.mkDefault pkgs.busybox;
+      users.users.root.shell = lib.mkOverride 99 pkgs.busybox;
 
       # serial-only boards: no keymaps, fonts or VESA blanking (drops kbd)
       hardware.console.enable = lib.mkDefault false;
@@ -104,6 +118,11 @@ in
     # finix writes /etc/pam.d even with PAM off
     (lib.mkIf (!config.security.pam.enable) {
       security.pam.services = lib.mkForce { };
+
+      # finix sets PATH through pam_env only; busybox login hardcodes
+      # /sbin:/bin:/usr/sbin:/usr/bin, so login shells found nothing.
+      # /etc/profile.d/session-vars.sh gives it to POSIX login shells.
+      environment.variables.PATH = lib.mkDefault [ "/run/current-system/sw/bin" ];
     })
 
     (lib.mkIf (cfg.console != null) {

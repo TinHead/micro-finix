@@ -58,9 +58,22 @@ kernel, image outputs). Both upstreams are MIT.
   dies with "rm: missing operand" (exit 123). `modules/kernel` patches
   in `xargs -r` and throws at eval if the upstream line changes.
 - Finit itself pulls procps (sysctl).
+- finix hard-sets root's shell to `pkgs.bashInteractive` and writes
+  `/run/current-system/sw/bin/bash` into passwd without installing it,
+  so login failed ("Cannot execute .../bin/bash"). The profile defaults
+  root and normal users to busybox ash and puts every user's shell
+  package on the system path. bash-interactive stays in the closure
+  only for finix's `switch-to-configuration` shebang.
+- finix sets PATH only through pam_env. With PAM off, busybox login
+  hardcodes `/sbin:/bin:/usr/sbin:/usr/bin`, so a login shell found no
+  commands. The profile sets `environment.variables.PATH` (written to
+  `/etc/profile.d/session-vars.sh`) when PAM is off.
 - The qemu-direct runner uses a headless single-target QEMU override;
   stock `buildPackages.qemu` dragged in ~2600 derivations (gtk, SDL,
   gstreamer, and gobject-introspection cross-built for the guest).
+  Upstream's postInstall links `qemu-kvm` to the build machine's
+  `qemu-system-*`, which a single foreign target doesn't build, so the
+  override empties it (throws if upstream changes it).
 - finix's security wrappers take `unsecvars.h` from `srcOnly
   pkgs.glibc`, which on musl cross-builds glibc and fails. The profile
   turns every wrapper off (finix's own mount/umount included) and
@@ -87,14 +100,21 @@ Read job outcomes from the job log, not from indirect signals.
 - Evaluates in both update modes; the qemu-aarch64 kernel `.config`
   builds clean (581 `=y`, no `=m`).
 - Trims: 114 -> 94 target packages in the qemu-aarch64 image closure.
-- First full CI build failed in the kernel (empty `modules.order`,
-  see Gotchas); fixed, the qemu-aarch64 kernel builds locally. Runner
-  and disk image not yet confirmed by CI. **Nothing has booted yet.**
+- First green CI build (runner + disk image) after fixing the kernel
+  (empty `modules.order`), the musl glibc wrappers and the runner's
+  QEMU (see Gotchas). Toplevel closure: 119.0 MiB.
+- Boots in QEMU (image mode) on both slots to a busybox ash login:
+  tmpfs `/`, squashfs store from the slot's partition, data partition
+  on `/var/lib`. The factory image carries the store in both slots; a
+  slot without a squashfs falls back to the other one, and
+  `/dev/micro/slot` records the slot actually booted.
+- Known noise: finit fails to load its `netlink.so` plugin (missing
+  from the package); harmless so far.
 
 ## Next
 
-1. Boot in QEMU: `run-micro-vm a`, then slot b; verify the A/B slot
-   task and data partition mount.
+1. Data persistence across slots (write on a, read on b) and closure
+   mode in QEMU; image-mode boot on both slots is done.
 2. `rpi-zero2w` device + Pi firmware boot backend (FAT: firmware,
    `config.txt`, kernel, dtb, per-slot cmdline; check whether the Zero
    firmware supports `tryboot`/`autoboot.txt` for A/B, else a small
