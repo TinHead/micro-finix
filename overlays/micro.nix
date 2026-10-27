@@ -92,3 +92,30 @@ in
     }
   );
 }
+# Cross compilers (build machine -> target) are long, serial builds at
+# the head of every new target's dependency chain. rustc and LLVM
+# already require `big-parallel`; GCC doesn't, so remote builders
+# without the feature (moria, thinq) picked it up. Require it for the
+# cross GCC stages (no-libc and full) so they build on the builder. Gated
+# on host != target: native GCC hashes stay as in nixpkgs/the cache.
+// (
+  let
+    inherit (prev) lib;
+    isCrossCompiler = !lib.systems.equals prev.stdenv.hostPlatform prev.stdenv.targetPlatform;
+    bigParallel =
+      wrapped:
+      if isCrossCompiler then
+        wrapped.override (old: {
+          cc = old.cc.overrideAttrs (o: {
+            requiredSystemFeatures = lib.unique ((o.requiredSystemFeatures or [ ]) ++ [ "big-parallel" ]);
+          });
+        })
+      else
+        wrapped;
+    gccN = "gcc${toString prev.default-gcc-version}";
+  in
+  {
+    gccWithoutTargetLibc = bigParallel prev.gccWithoutTargetLibc;
+    ${gccN} = bigParallel prev.${gccN};
+  }
+)
