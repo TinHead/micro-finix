@@ -99,6 +99,7 @@ pulls bindgen/clang), which finix hard-wires for user creation.
 
 ## Binary cache
 
-The flake advertises `cache.darker.ro/darker`; CI pushes every build
-from `main` there. The cache is only reachable from the home network,
+The flake advertises `cache.darker.ro/darker` (CI pushes every build
+from `main` there) and `finix.cachix.org`. The finix cache only holds
+finix's native glibc builds, not the musl cross builds used here. The cache is only reachable from the home network,
 so builds elsewhere fall back to building locally.
