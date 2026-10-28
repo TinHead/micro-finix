@@ -85,8 +85,32 @@ let
     lib.throwIfNot (lib.hasInfix emptyModulesRm old.postInstall)
       "micro.kernel: nixpkgs kernel postInstall changed; re-check the empty modules.order workaround"
       {
-        postInstall = builtins.replaceStrings [ emptyModulesRm ] [ "| xargs -r -d'\\n' rm" ] old.postInstall;
+        postInstall =
+          builtins.replaceStrings [ emptyModulesRm ] [ "| xargs -r -d'\\n' rm" ]
+            old.postInstall;
       };
+
+  # nixpkgs installs the kernel with `make install`, relying on the arch
+  # Makefile calling ~/bin/installkernel (which nixpkgs points at a script
+  # copying the image and System.map to $out). MIPS' `install` target
+  # doesn't: it copies vmlinux-<release> and, with SYS_SUPPORTS_ZBOOT
+  # (Malta, Ralink), vmlinuz-<release>, which the build never made
+  # ("cannot stat 'vmlinuz'"). Copy the image ourselves, as installkernel
+  # would, and keep the remaining install targets (modules_install, ...).
+  fixMipsInstall =
+    old:
+    lib.optionalAttrs pkgs.stdenv.hostPlatform.isMips (
+      lib.throwIfNot (lib.elem "install" old.installTargets)
+        "micro.kernel: nixpkgs kernel installTargets changed; re-check the MIPS install workaround"
+        {
+          installTargets = lib.remove "install" old.installTargets;
+          preInstall = ''
+            install -D -m 755 "$buildRoot/${old.passthru.target}" "$out/${old.passthru.target}"
+            install -D -m 644 "$buildRoot/System.map" "$out/System.map"
+          ''
+          + (old.preInstall or "");
+        }
+    );
 
   kernel =
     (pkgs.linuxKernel.manualConfig {
@@ -97,7 +121,7 @@ let
         lib.filterAttrs (_: v: v != "n") merged
       );
     }).overrideAttrs
-      fixEmptyModules;
+      (old: fixEmptyModules old // fixMipsInstall old);
 in
 {
   imports = [ ./base.nix ];

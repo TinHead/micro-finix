@@ -81,6 +81,11 @@ kernel, image outputs). Both upstreams are MIT.
   with `MODULES=y` and nothing `=m` that list is empty and the build
   dies with "rm: missing operand" (exit 123). `modules/kernel` patches
   in `xargs -r` and throws at eval if the upstream line changes.
+- MIPS' `make install` ignores nixpkgs' installkernel hook and installs
+  `vmlinux-<release>` plus, with SYS_SUPPORTS_ZBOOT (Malta, Ralink),
+  `vmlinuz-<release>`, which isn't built ("cannot stat 'vmlinuz'").
+  `modules/kernel` drops the `install` target on MIPS and copies the
+  image and System.map to `$out` itself.
 - Finit itself pulls procps (sysctl).
 - finix sets root's shell to `pkgs.bashInteractive` and writes
   `/run/current-system/sw/bin/bash` into passwd without installing it,
