@@ -28,6 +28,12 @@
       SERIAL_8250 = "y";
       SERIAL_8250_CONSOLE = "y";
       RTC_CLASS = "y";
+
+      # power off via the PIIX4, reboot via the FPGA (syscon-reboot in
+      # malta.dts); as in the kernel's malta_defconfig
+      POWER_RESET = "y";
+      POWER_RESET_PIIX4_POWEROFF = "y";
+      POWER_RESET_SYSCON = "y";
     };
 
     micro.storage.device = "/dev/vda";

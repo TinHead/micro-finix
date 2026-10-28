@@ -174,14 +174,17 @@ Read job outcomes from the job log, not from indirect signals.
   partition (image: vda1/vda2 slots, vda3 data; closure: vda1 root,
   vda2 data). Both modes re-tested in QEMU after the split.
 - `qemu-mipsel` (Malta, 24Kc, MIPS32r2 soft-float, 256 MiB) added as
-  the MT7621 stand-in; evaluates, first build handed to CI (needs a
-  mipsel GCC, rustc for userborn, the target Python). Not booted yet.
+  the MT7621 stand-in; boots image mode in QEMU to a bash login in
+  ~20 s (11 MiB RAM used), after fixing the MIPS kernel install and
+  32-bit time syscalls (see Gotchas). rustc/userborn built fine for
+  mipsel. `poweroff` unmounted cleanly but then panicked ("Attempted
+  to kill init"); PIIX4 power-off + syscon reboot added, not yet
+  re-tested.
 
 ## Next
 
-1. `qemu-mipsel` green in CI and booting; if rustc/userborn can't be
-   built for mipsel (Rust's MIPS targets are tier 3), replacing
-   userborn becomes a requirement, not a trim.
+1. `qemu-mipsel`: confirm `poweroff`/`reboot` after the power-reset
+   drivers, and test closure mode and slot b on it.
 2. `rpi-zero2w` device + Pi firmware boot backend (FAT: firmware,
    `config.txt`, kernel, dtb, per-slot cmdline; check whether the Zero
    firmware supports `tryboot`/`autoboot.txt` for A/B, else a small
