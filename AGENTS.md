@@ -187,12 +187,13 @@ Read job outcomes from the job log, not from indirect signals.
   mipsel. `poweroff`/`reboot` unmounted cleanly but then panicked
   ("Attempted to kill init"): finit relies on vfork, which musl/MIPS
   implements as fork (see Gotchas). Patched, plus Malta PIIX4
-  power-off and syscon reboot; not yet re-tested.
+  power-off and syscon reboot: reboot and poweroff now clean, /var/lib
+  survives a reboot, QEMU exits on power-off.
 
 ## Next
 
-1. `qemu-mipsel`: confirm `poweroff`/`reboot` after the power-reset
-   drivers, and test closure mode and slot b on it.
+1. `qemu-mipsel`: test closure mode and slot b (image mode, slot a,
+   reboot and poweroff verified).
 2. `rpi-zero2w` device + Pi firmware boot backend (FAT: firmware,
    `config.txt`, kernel, dtb, per-slot cmdline; check whether the Zero
    firmware supports `tryboot`/`autoboot.txt` for A/B, else a small
