@@ -99,6 +99,18 @@ kernel, image outputs). Both upstreams are MIT.
   to kill init" on every poweroff/reboot. `patches/finit-vfork-as-fork.patch`
   (via `finit.package` in the profile) makes the parent wait; worth
   sending upstream.
+- finit's watchdogd renames itself `@finit-watchdog` so the shutdown
+  kill loop spares it; finit's switch_root uses the same loop, so the
+  initrd's watchdogd survived into stage 2 unsupervised, holding
+  /dev/watchdog, and stage 2's own crashed in a loop ("Resource busy").
+  Only shows on hardware with a watchdog (QEMU has none).
+  `patches/finit-switch-root-watchdog.patch` hands it over (SIGTERM =
+  magic close) before switching; upstream candidate too.
+- `allnoconfig` drops symbols whose Kconfig default is on for the SoC
+  (e.g. `CLK_BCM2835`, `default ARCH_BCM2835`); the strict check
+  doesn't see these because nobody asked for them. Symptom: drivers
+  stuck in "deferred probe pending: could not get clk". List SoC
+  infrastructure (clocks, pinctrl, power domains) explicitly.
 - Finit itself pulls procps (sysctl).
 - finix sets root's shell to `pkgs.bashInteractive` and writes
   `/run/current-system/sw/bin/bash` into passwd without installing it,
@@ -207,19 +219,22 @@ Read job outcomes from the job log, not from indirect signals.
 - `rpi-zero2w` device + `rpi-firmware` boot backend: mainline kernel
   and DTB, Pi firmware (unfree, allowed via the device's
   `nixpkgsConfig`) on the FAT partition with config.txt and per-slot
-  cmdline-<slot>.txt (`cmdline=` picks the slot). HDMI console via the
-  firmware framebuffer (simpledrm) + USB keyboard on the OTG port;
-  SD on sdhost only so it is mmcblk0. Disk image builds (641 MiB);
-  not booted on the hardware yet.
+  cmdline-<slot>.txt (`cmdline=` picks the slot). SD on sdhost only so
+  it is mmcblk0. Boots on the hardware to a root login: store from
+  mmcblk0p2 (slot a), data mmcblk0p4, 20 MiB of 428 MiB used.
+  simpledrm picks up the firmware framebuffer (HDMI untested: broken
+  adapter). Debug access without HDMI or UART: the data port runs USB
+  gadget serial (g_serial, console + getty on ttyGS0 = /dev/ttyACM0 on
+  the PC; `picocom --imap lfcrlf`), and the ACT LED shows the kernel
+  heartbeat. A USB keyboard needs host/dual-role mode instead.
 
 ## Next
 
 1. `qemu-mipsel`: test closure mode and slot b (image mode, slot a,
    reboot and poweroff verified).
-2. `rpi-zero2w` device + Pi firmware boot backend (FAT: firmware,
-   `config.txt`, kernel, dtb, per-slot cmdline; check whether the Zero
-   firmware supports `tryboot`/`autoboot.txt` for A/B, else a small
-   selector).
+2. `rpi-zero2w`: A/B slot switching (config.txt `cmdline=`, or
+   `tryboot`/`autoboot.txt` if the Zero 2 W firmware supports it),
+   HDMI check, USB dual-role for a keyboard.
 3. Wi-Fi client via finix's iwd + brcmfmac firmware.
 4. First router: the spare DAP-X1860 A1 (same model as the home APs,
    5 GHz faulty, free to flash; the live APs stay untouched). Read
