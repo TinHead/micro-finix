@@ -31,6 +31,8 @@ let
   pkgs = import nixpkgs {
     localSystem = buildSystem;
     crossSystem = dev.platform;
+    # e.g. allowUnfreePredicate for board firmware blobs
+    config = dev.nixpkgsConfig or { };
     overlays = [
       finix.overlays.without-systemd
       (import ../overlays/micro.nix)

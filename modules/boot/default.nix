@@ -17,6 +17,7 @@ in
   imports = [
     ./qemu-direct.nix
     ./uboot-fit.nix
+    ./rpi-firmware.nix
   ];
 
   options.micro.boot = {
@@ -24,6 +25,7 @@ in
       type = lib.types.enum [
         "qemu-direct"
         "uboot-fit"
+        "rpi-firmware"
       ];
       description = "How the device loads the kernel; see modules/boot/<backend>.nix.";
     };

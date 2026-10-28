@@ -27,6 +27,8 @@ jobs:
             targets: runner diskImage
           - device: dap-x1860
             targets: fit fitShell
+          - device: rpi-zero2w
+            targets: diskImage
     steps:
       - uses: actions/checkout@v4
 

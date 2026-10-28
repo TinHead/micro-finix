@@ -204,6 +204,13 @@ Read job outcomes from the job log, not from indirect signals.
   `openwrt` flake input (`microSources.openwrt` in modules). Builds
   `fit` (finix from RAM) and `fitShell` (`rdinit=` busybox), ~37 MiB
   each, uncompressed kernel. Not run on the hardware yet.
+- `rpi-zero2w` device + `rpi-firmware` boot backend: mainline kernel
+  and DTB, Pi firmware (unfree, allowed via the device's
+  `nixpkgsConfig`) on the FAT partition with config.txt and per-slot
+  cmdline-<slot>.txt (`cmdline=` picks the slot). HDMI console via the
+  firmware framebuffer (simpledrm) + USB keyboard on the OTG port;
+  SD on sdhost only so it is mmcblk0. Disk image builds (641 MiB);
+  not booted on the hardware yet.
 
 ## Next
 
