@@ -48,7 +48,9 @@
             ];
           }
           ''
-            tar -xf ${config.micro.kernel.src} --strip-components=1 --wildcards '*/include/dt-bindings/*'
+            set -o pipefail
+            tar -xf ${config.micro.kernel.src} --strip-components=1 --wildcards \
+              '*/include/dt-bindings/*' '*/include/uapi/linux/input-event-codes.h'
             cpp -nostdinc -undef -D__DTS__ -x assembler-with-cpp \
               -I ${ramips}/dts -I include \
               ${ramips}/dts/mt7621_dlink_dap-x1860-a1.dts \
@@ -67,6 +69,16 @@
           patch =
             newFile "mt7621-nand" "${ramips}/files/drivers/mtd/nand/raw/mt7621_nand.c"
               "drivers/mtd/nand/raw/mt7621_nand.c";
+        }
+        {
+          # the driver calls into NMBM; without MTD_NAND_MTK_BMT the
+          # header's inline stubs make that a no-op (Linux then sees the
+          # raw NAND; NMBM only remaps up to the end of the kernel
+          # partition, which Linux doesn't write yet)
+          name = "openwrt-mtk-bmt-header";
+          patch =
+            newFile "mtk-bmt-h" "${openwrt}/target/linux/generic/files/include/linux/mtd/mtk_bmt.h"
+              "include/linux/mtd/mtk_bmt.h";
         }
       ];
       micro.kernel.config = {
