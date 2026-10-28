@@ -1,0 +1,22 @@
+--- a/src/initramfs.c
++++ b/src/initramfs.c
+@@ -306,6 +306,19 @@
+ 	/* Run switch_root hook before we start tearing things down */
+ 	plugin_run_hooks(HOOK_SWITCH_ROOT);
+ 
++	/*
++	 * The built-in watchdogd renames itself @finit-watchdog so the
++	 * shutdown kill loop spares it, but the kill loop below would spare
++	 * it too: it would outlive the switch, unsupervised, holding
++	 * WDT_DEVNODE so the new init's watchdogd fails with EBUSY. Ask it
++	 * to hand over (magic close) and wait for it to exit.
++	 */
++	if (wdog && wdog->pid > 1) {
++		dbg("Handing over watchdog %d before switch_root", wdog->pid);
++		if (!kill(wdog->pid, SIGTERM))
++			waitpid(wdog->pid, NULL, 0);
++	}
++
+ 	/* Stop all services gracefully */
+ 	dbg("Stopping all services...");
+ 	halt = SHUT_OFF;		/* Prevent actual shutdown */

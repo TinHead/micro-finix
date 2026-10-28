@@ -23,6 +23,9 @@
         BCM2835_MBOX = "y";
         RASPBERRYPI_FIRMWARE = "y";
         CLK_RASPBERRYPI = "y";
+        # cprman + aux clocks; without it sdhost (SD card) and the mini
+        # UART defer forever ("could not get clk")
+        CLK_BCM2835 = "y";
         PINCTRL_BCM2835 = "y";
         DMADEVICES = "y";
         DMA_BCM2835 = "y";
@@ -55,23 +58,40 @@
         VT_CONSOLE = "y";
         FRAMEBUFFER_CONSOLE = "y";
 
-        # USB keyboard on the OTG port (host mode)
+        # USB: gadget (device) mode on the data port. Plugged into a PC
+        # it powers the board and appears as a CDC ACM serial port
+        # (ttyGS0 here, /dev/ttyACM0 there) carrying console and getty;
+        # debug path without HDMI or a UART adapter. A keyboard on an
+        # OTG adapter needs host or dual-role mode instead.
         USB_SUPPORT = "y";
-        USB = "y";
+        USB_GADGET = "y";
         USB_PHY = "y";
         NOP_USB_XCEIV = "y";
         USB_DWC2 = "y";
-        USB_DWC2_HOST = "y";
-        INPUT = "y";
-        HID_SUPPORT = "y";
-        HID = "y";
-        HID_GENERIC = "y";
-        USB_HID = "y";
+        USB_DWC2_PERIPHERAL = "y";
+        USB_G_SERIAL = "y";
+        U_SERIAL_CONSOLE = "y";
+
+        # ACT LED: the DT sets the heartbeat trigger, so a running
+        # kernel blinks it continuously
+        NEW_LEDS = "y";
+        LEDS_CLASS = "y";
+        LEDS_GPIO = "y";
+        LEDS_TRIGGERS = "y";
+        LEDS_TRIGGER_HEARTBEAT = "y";
       };
 
-      # serial first, tty1 last: /dev/console (and the getty) is on HDMI
-      boot.kernelParams = lib.mkBefore [ "console=ttyS1,115200" ];
-      micro.console = "tty1";
+      # serial and HDMI get kernel messages too; /dev/console is the last
+      # one, the USB gadget port
+      boot.kernelParams = lib.mkBefore [
+        "console=ttyS1,115200"
+        "console=tty1"
+      ];
+      micro.console = "ttyGS0";
+      services.getty.ttys = [
+        "ttyGS0"
+        "tty1"
+      ];
 
       micro.storage.device = "/dev/mmcblk0";
       micro.boot.backend = "rpi-firmware";
