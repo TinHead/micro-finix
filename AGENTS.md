@@ -136,6 +136,11 @@ kernel, image outputs). Both upstreams are MIT.
   PATH for all skaware packages.
 - `finix.cachix.org` holds only finix's native glibc builds -- none of
   the musl cross paths. `cache.darker.ro` is private (not publicly reachable).
+- Attic only gets runtime closures from CI, not the cross toolchains.
+  For iteration without CI or local heavy builds, evaluate on the workstation and
+  build on the builder: `nix build --eval-store auto --store
+  ssh-ng://<builder> <attr>` (as a trusted user there), then
+  `nix copy --no-check-sigs --from ssh-ng://<builder> <out>`.
 - Eval-checked (not built) for `pkgsCross.muslpi` (ARMv6 Zero) too:
   finit, busybox, iwd, dropbear, dhcpcd, chrony, nftables, mdevd.
 
@@ -189,6 +194,16 @@ Read job outcomes from the job log, not from indirect signals.
   implements as fork (see Gotchas). Patched, plus Malta PIIX4
   power-off and syscon reboot: reboot and poweroff now clean, /var/lib
   survives a reboot, QEMU exits on power-off.
+- `ram` storage layout: the squashfs store rides in a second cpio
+  archive appended to the initrd (`micro.boot.ramdisk`), mounted via
+  loop; `/var/lib` is tmpfs. Booted in QEMU (aarch64, no disk).
+- `dap-x1860` device + `uboot-fit` boot backend (kernel, DTB with
+  per-slot bootargs, ramdisk in one FIT; OpenWrt's relocate stub; load
+  address 0x82000000). Kernel adds OpenWrt's MT7621 NAND driver (patch
+  410 + driver file + `mtk_bmt.h` stubs, NMBM off) from the pinned
+  `openwrt` flake input (`microSources.openwrt` in modules). Builds
+  `fit` (finix from RAM) and `fitShell` (`rdinit=` busybox), ~37 MiB
+  each, uncompressed kernel. Not run on the hardware yet.
 
 ## Next
 
