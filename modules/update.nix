@@ -109,10 +109,11 @@ in
               b) echo ${storage.partitions.root-b.device} ;;
             esac
           }
-          # squashfs superblock magic; waits a little for the partition node
+          # squashfs superblock magic; waits a little for the device node
+          # (or, with the ram layout, the store file)
           is_store() {
             i=0
-            while [ ! -b "$1" ] && [ $i -lt 10 ]; do sleep 1; i=$((i + 1)); done
+            while [ ! -e "$1" ] && [ $i -lt 10 ]; do sleep 1; i=$((i + 1)); done
             [ "$(head -c 4 "$1" 2>/dev/null)" = hsqs ]
           }
           case "$slot" in

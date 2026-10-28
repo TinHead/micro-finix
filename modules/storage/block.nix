@@ -22,7 +22,7 @@ in
 
       # /dev/vda -> /dev/vda2, /dev/mmcblk0 -> /dev/mmcblk0p2
       devicePath =
-        index:
+        { index, ... }:
         let
           last = lib.substring (lib.stringLength cfg.device - 1) 1 cfg.device;
           sep = if builtins.match "[0-9]" last != null then "p" else "";

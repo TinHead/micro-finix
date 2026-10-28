@@ -31,10 +31,28 @@
         "type": "github"
       }
     },
+    "openwrt": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1793178094,
+        "narHash": "sha256-SMLmTfr2OzOqplF5Dz2pnmh1dY6tc+VuFb97nazoJ8o=",
+        "owner": "openwrt",
+        "repo": "openwrt",
+        "rev": "e54d48c11e6e45bb662339233389c94dabc87143",
+        "type": "github"
+      },
+      "original": {
+        "owner": "openwrt",
+        "repo": "openwrt",
+        "rev": "e54d48c11e6e45bb662339233389c94dabc87143",
+        "type": "github"
+      }
+    },
     "root": {
       "inputs": {
         "finix": "finix",
-        "nixpkgs": "nixpkgs"
+        "nixpkgs": "nixpkgs",
+        "openwrt": "openwrt"
       }
     }
   },

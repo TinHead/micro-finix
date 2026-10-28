@@ -23,11 +23,17 @@ let
   ) (lib.attrNames cfg.partitions);
 in
 {
-  imports = [ ./block.nix ];
+  imports = [
+    ./block.nix
+    ./ram.nix
+  ];
 
   options.micro.storage = {
     layout = lib.mkOption {
-      type = lib.types.enum [ "block" ];
+      type = lib.types.enum [
+        "block"
+        "ram"
+      ];
       default = "block";
       description = "Storage backend; see modules/storage/<layout>.nix.";
     };
@@ -76,7 +82,7 @@ in
     devicePath = lib.mkOption {
       type = with lib.types; functionTo str;
       internal = true;
-      description = "Partition number -> device node (set by the layout).";
+      description = "{ name, index } of a partition -> its device node on the running system (set by the layout).";
     };
 
     partitions = lib.mkOption {
@@ -123,7 +129,10 @@ in
               device = lib.mkOption {
                 type = lib.types.str;
                 readOnly = true;
-                default = cfg.devicePath config.index;
+                default = cfg.devicePath {
+                  inherit name;
+                  inherit (config) index;
+                };
                 description = "Device node of the partition on the running system.";
               };
             };

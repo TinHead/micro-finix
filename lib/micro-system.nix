@@ -13,6 +13,9 @@
   nixpkgs,
   finix,
   microModules,
+  # pinned non-flake sources (e.g. openwrt) devices take files from;
+  # modules get them as the `microSources` argument
+  sources ? { },
 }:
 {
   device,
@@ -39,6 +42,7 @@ let
     class = "nixos";
     specialArgs = {
       modules = finix.nixosModules;
+      microSources = sources;
     }
     // specialArgs;
     modules = [

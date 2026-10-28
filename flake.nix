@@ -16,6 +16,12 @@
     # keep in step with finix's own pin (finix/lon.lock)
     nixpkgs.url = "github:nixos/nixpkgs/02c087f3fe673c9e317f206a627cb6b910336dbe";
     finix.url = "github:finix-community/finix";
+    # board support (kernel drivers, device trees, image tools) that
+    # isn't in mainline; devices take single files from it
+    openwrt = {
+      url = "github:openwrt/openwrt/e54d48c11e6e45bb662339233389c94dabc87143";
+      flake = false;
+    };
   };
 
   outputs =
@@ -23,6 +29,7 @@
       self,
       nixpkgs,
       finix,
+      openwrt,
     }:
     let
       lib = nixpkgs.lib;
@@ -37,6 +44,7 @@
       lib.microSystem = import ./lib/micro-system.nix {
         inherit nixpkgs finix;
         microModules = self.nixosModules.default;
+        sources = { inherit openwrt; };
       };
 
       # example systems, one per device, built on each build system

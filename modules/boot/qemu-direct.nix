@@ -11,6 +11,8 @@ let
   cfg = config.micro.boot.qemu;
   bpkgs = pkgs.buildPackages;
   hostPlatform = pkgs.stdenv.hostPlatform;
+  # the ram layout has no disk image
+  hasDisk = config.micro.storage.layout != "ram";
 
   # headless, single-target QEMU. Stock `qemu` builds every target plus
   # gtk/SDL/spice/audio (thousands of derivations, some cross-built for
@@ -90,11 +92,12 @@ in
       [ $# -gt 0 ] && shift
       state=''${MICRO_VM_STATE:-$PWD/micro-vm}
       mkdir -p "$state"
-      if [ ! -e "$state/disk.img" ]; then
-        cp --reflink=auto ${config.system.build.diskImage} "$state/disk.img"
-        chmod u+w "$state/disk.img"
-      fi
-      case "$slot" in
+      ${lib.optionalString hasDisk ''
+        if [ ! -e "$state/disk.img" ]; then
+          cp --reflink=auto ${config.system.build.diskImage} "$state/disk.img"
+          chmod u+w "$state/disk.img"
+        fi
+      ''}      case "$slot" in
         ${lib.concatMapStrings (slot: ''
           ${
             if slot == null then "''" else slot
@@ -106,9 +109,9 @@ in
         ${lib.escapeShellArgs machineArgs} \
         -m ${toString cfg.memory} -nographic \
         -kernel ${config.micro.boot.kernelFile} \
-        -initrd ${config.boot.initrd.package}/initrd \
+        -initrd ${config.micro.boot.ramdisk} \
         -append "$cmdline" \
-        -drive if=virtio,format=raw,file="$state/disk.img" \
+        ${lib.optionalString hasDisk ''-drive if=virtio,format=raw,file="$state/disk.img" \''}
         -nic user,model=virtio-net-pci \
         ${lib.escapeShellArgs cfg.extraArgs} "$@"
     '';

@@ -14,11 +14,17 @@ let
   kernel = config.boot.kernelPackages.kernel;
 in
 {
-  imports = [ ./qemu-direct.nix ];
+  imports = [
+    ./qemu-direct.nix
+    ./uboot-fit.nix
+  ];
 
   options.micro.boot = {
     backend = lib.mkOption {
-      type = lib.types.enum [ "qemu-direct" ];
+      type = lib.types.enum [
+        "qemu-direct"
+        "uboot-fit"
+      ];
       description = "How the device loads the kernel; see modules/boot/<backend>.nix.";
     };
 
@@ -57,6 +63,16 @@ in
       description = "Directory copied to the root of the boot partition.";
     };
 
+    ramdisk = lib.mkOption {
+      type = lib.types.path;
+      default = "${config.boot.initrd.package}/initrd";
+      defaultText = lib.literalExpression ''"''${config.boot.initrd.package}/initrd"'';
+      description = ''
+        The initrd file the backend loads. The finix initrd by default;
+        storage layouts that carry more in RAM (e.g. `ram`) extend it.
+      '';
+    };
+
     partition = {
       enable = lib.mkOption {
         type = lib.types.bool;
@@ -76,7 +92,7 @@ in
         bpkgs.runCommand "micro-boot-files" { } ''
           mkdir $out
           cp ${cfg.kernelFile} $out/kernel
-          cp ${config.boot.initrd.package}/initrd $out/initrd
+          cp ${cfg.ramdisk} $out/initrd
           ${lib.concatMapStrings (slot: ''
             echo ${lib.escapeShellArg (cfg.cmdlineFor slot)} > $out/cmdline${
               lib.optionalString (slot != null) "-${slot}"
