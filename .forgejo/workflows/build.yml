@@ -1,6 +1,7 @@
-# Cross-build each device's example system (disk image + QEMU runner) on
-# the big host-mode runner. Pushes to main also push the result to attic
-# so later builds and local `run-micro-vm` substitute instead of building.
+# Cross-build each device's example system (QEMU: disk image + runner;
+# U-Boot boards: FIT images) on the big host-mode runner. Pushes to main
+# also push the result to attic so later builds and local runs
+# substitute instead of building.
 # The first build compiles the whole musl userland and the kernel.
 name: build
 
@@ -17,16 +18,25 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        device: [qemu-aarch64, qemu-mipsel]
+        # outputs differ per boot backend: QEMU devices have a runner and
+        # a disk image, U-Boot FIT devices their FIT images
+        include:
+          - device: qemu-aarch64
+            targets: runner diskImage
+          - device: qemu-mipsel
+            targets: runner diskImage
+          - device: dap-x1860
+            targets: fit fitShell
     steps:
       - uses: actions/checkout@v4
 
       - name: build
         run: |
-          nix build --print-build-logs --no-link --print-out-paths \
-            ".#legacyPackages.x86_64-linux.${{ matrix.device }}.config.system.build.runner" \
-            ".#legacyPackages.x86_64-linux.${{ matrix.device }}.config.system.build.diskImage" \
-            | tee out-paths
+          attrs=""
+          for t in ${{ matrix.targets }}; do
+            attrs="$attrs .#legacyPackages.x86_64-linux.${{ matrix.device }}.config.system.build.$t"
+          done
+          nix build --print-build-logs --no-link --print-out-paths $attrs | tee out-paths
 
       - name: closure size
         run: |
