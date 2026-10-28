@@ -8,6 +8,13 @@
 }:
 let
   cfg = config.micro;
+
+  # shell packages of enabled users (root: bash)
+  userShells = lib.unique (
+    lib.mapAttrsToList (_: u: u.shell) (
+      lib.filterAttrs (_: u: u.enable && lib.types.shellPackage.check u.shell) config.users.users
+    )
+  );
 in
 {
   options = {
@@ -82,9 +89,15 @@ in
       # never installs the shell; put every user's shell package on the
       # path so the login shell exists (lowPrio: busybox must not shadow
       # coreutils & co.)
-      ++ lib.mapAttrsToList (_: u: lib.lowPrio u.shell) (
-        lib.filterAttrs (_: u: u.enable && lib.types.shellPackage.check u.shell) config.users.users
-      );
+      ++ map lib.lowPrio userShells;
+
+      # ...and list them in /etc/shells: dropbear (like getusershell()
+      # users generally) rejects every login, key or password, for a user
+      # whose shell isn't there ("Permission denied (publickey,password)")
+      environment.shells = lib.concatMap (s: [
+        "/run/current-system/sw${s.shellPath}"
+        "${s}${s.shellPath}"
+      ]) (lib.filter (s: s.shellPath != "/bin/nologin") userShells);
 
       # serial-only boards: no keymaps, fonts or VESA blanking (drops kbd)
       hardware.console.enable = lib.mkDefault false;

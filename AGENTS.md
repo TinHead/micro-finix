@@ -111,6 +111,17 @@ kernel, image outputs). Both upstreams are MIT.
   doesn't see these because nobody asked for them. Symptom: drivers
   stuck in "deferred probe pending: could not get clk". List SoC
   infrastructure (clocks, pinctrl, power domains) explicitly.
+- `/etc/shells` only lists shells of enabled `programs.<shell>` modules
+  (finix), and the profile installs users' shells without them, so it
+  held just /bin/sh. dropbear refuses every login (key or password) for
+  a user whose shell isn't listed: "Permission denied
+  (publickey,password)". The profile adds every user's shell.
+- Built-in drivers (brcmfmac, cfg80211's regulatory.db) request
+  firmware while probing, before the real root is mounted. finix's
+  initrd /lib is a symlink into the modules store path, so early
+  firmware goes to the initrd's /firmware with
+  `firmware_class.path=/firmware`; activation resets the path to
+  hardware.firmware.
 - Finit itself pulls procps (sysctl).
 - finix sets root's shell to `pkgs.bashInteractive` and writes
   `/run/current-system/sw/bin/bash` into passwd without installing it,
@@ -227,6 +238,11 @@ Read job outcomes from the job log, not from indirect signals.
   gadget serial (g_serial, console + getty on ttyGS0 = /dev/ttyACM0 on
   the PC; `picocom --imap lfcrlf`), and the ACT LED shows the kernel
   heartbeat. A USB keyboard needs host/dual-role mode instead.
+- Opt-in profiles `micro.wifi.client` (iwd with its own DHCP, dbus,
+  syslogd, cfg80211 + iwd's crypto) and `micro.ssh` (dropbear, root's
+  authorized keys written at boot). The Zero's radio is a 43436s that
+  reports as BCM43430/1; firmware for all Zero 2 W radio variants is
+  packaged (and in the initrd). Runs on hardware: on Wi-Fi via iwctl-provisioned credentials, SSH with the user's keys.
 
 ## Next
 
@@ -235,8 +251,18 @@ Read job outcomes from the job log, not from indirect signals.
 2. `rpi-zero2w`: A/B slot switching (config.txt `cmdline=`, or
    `tryboot`/`autoboot.txt` if the Zero 2 W firmware supports it),
    HDMI check, USB dual-role for a keyboard.
-3. Wi-Fi client via finix's iwd + brcmfmac firmware.
-4. First router: the spare DAP-X1860 A1 (same model as the home APs,
+3. DNS (resolvconf for iwd) and NTP on the Wi-Fi devices.
+4. Deployment (decided: push from the workstation, `nix run .#deploy-<device>`,
+   like the servers). Image mode: CI builds the slot artifact (store
+   squashfs + that slot's boot files) into attic; the deploy app
+   streams it over SSH into the inactive slot, an on-device
+   `micro-update` verifies it and arms a one-shot trial boot; a health
+   check confirms the slot, otherwise the next boot falls back. Needs
+   per-slot boot files on the Pi FAT (kernel/initrd shared today) and
+   a rollback mechanism (Pi `tryboot` if the Zero 2 W firmware has it,
+   else a boot counter the initrd checks). Closure mode: nix copy +
+   switch-to-configuration.
+5. First router: the spare DAP-X1860 A1 (same model as the home APs,
    5 GHz faulty, free to flash; the live APs stay untouched). Read
    from ap1001: MT7621 (1004Kc, 4 threads), 249 MB RAM, NAND with 128
    KiB erase blocks; mtd3 "kernel" 8 MiB raw (bootloader loads it),
@@ -260,7 +286,7 @@ Read job outcomes from the job log, not from indirect signals.
    NMBM (bad-block remapping); OpenWrt carries kernel patches for it.
    Check whether mainline handles NMBM and the MT7621 NAND controller,
    or which OpenWrt ramips patches the device kernel needs.
-5. Optional `micro.kernel.tiny` preset (EXPERT on, optimise for size,
+6. Optional `micro.kernel.tiny` preset (EXPERT on, optimise for size,
    per-device `NR_CPUS`, no VT/KALLSYMS/INPUT, PCI only where needed).
    The kernel is already `allnoconfig` plus listed symbols (581 `=y`,
    no `=m`; no AX25/WLAN/USB/sound/DRM unless a device asks), so this
@@ -268,5 +294,5 @@ Read job outcomes from the job log, not from indirect signals.
    `NR_CPUS=512`, `KALLSYMS`, `VT`, `INPUT`, and arm64's allnoconfig
    platform defaults. Keep it a preset devices opt into, each symbol
    still overridable (`mkDefault`, `"n"`).
-6. Replace userborn in image mode.
-7. Closure-mode update tooling (copy closure + switch, GC).
+7. Replace userborn in image mode.
+8. Closure-mode update tooling (copy closure + switch, GC).

@@ -43,6 +43,13 @@ in
       description = "Raspberry Pi firmware (bootcode.bin, start*.elf, fixup*.dat).";
     };
 
+    dtbFixup = lib.mkOption {
+      type = lib.types.lines;
+      default = "";
+      example = ''fdtput -t s "$dtb" /aliases mmc0 /soc/mmc@7e202000'';
+      description = "Shell run on a copy of the DTB (`$dtb`, fdtput/fdtget on PATH) before it goes on the boot partition.";
+    };
+
     extraConfig = lib.mkOption {
       type = lib.types.lines;
       default = "";
@@ -53,14 +60,17 @@ in
   config = lib.mkIf (boot.backend == "rpi-firmware") {
     micro.boot.partition.enable = true;
 
-    micro.boot.files = bpkgs.runCommand "micro-rpi-boot" { } ''
+    micro.boot.files = bpkgs.runCommand "micro-rpi-boot" { nativeBuildInputs = [ bpkgs.dtc ]; } ''
       mkdir $out
       fw=${cfg.firmware}/share/raspberrypi/boot
       # firmware only: the repo's own kernels, overlays and DTBs stay out
       cp $fw/bootcode.bin $fw/start*.elf $fw/fixup*.dat $fw/LICENCE.broadcom $out/
       cp ${boot.kernelFile} $out/kernel.img
       cp ${boot.ramdisk} $out/initrd
-      cp ${kernel}/dtbs/${cfg.dtb} $out/
+      dtb=$out/${baseNameOf cfg.dtb}
+      cp ${kernel}/dtbs/${cfg.dtb} $dtb
+      chmod u+w $dtb
+      ${cfg.dtbFixup}
       cp ${configTxt} $out/config.txt
       ${lib.concatMapStrings (slot: ''
         echo ${lib.escapeShellArg (boot.cmdlineFor slot)} > $out/${slotFile slot}
