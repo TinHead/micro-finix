@@ -141,6 +141,13 @@
       micro.boot.backend = "rpi-firmware";
       micro.boot.rpi = {
         dtb = "broadcom/bcm2837-rpi-zero-2-w.dtb";
+        # BCM2837: start.elf/fixup.dat only (no start4*: Pi 4; _x/_cd/_db:
+        # camera, cut-down, debug variants)
+        firmwareFiles = [
+          "bootcode.bin"
+          "start.elf"
+          "fixup.dat"
+        ];
         # the mainline DT has no mmc aliases; pin SD to mmc0, Wi-Fi to mmc1
         dtbFixup = ''
           fdtput -p -t s "$dtb" /aliases mmc0 /soc/mmc@7e202000

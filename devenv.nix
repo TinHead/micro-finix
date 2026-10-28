@@ -13,12 +13,6 @@ in
     sops
     age
     ssh-to-age
-    (pkgs.callPackage ./pkgs/crush.nix {
-      # Override the builder function itself to use a newer Go compiler
-      buildGoModule = pkgs.buildGoModule.override {
-        go = pkgs.go_1_27;
-      };
-    })
     pkgs-unstable.claude-code
     (rtk.overrideAttrs (old: {
       doCheck = false;

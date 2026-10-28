@@ -75,6 +75,27 @@ in
       '';
     };
 
+    # How a running system installs a new slot's boot files and makes
+    # the bootloader pick a slot (micro-update). Backends that support
+    # in-place updates set these; null slotFiles means no updates.
+    update = {
+      slotFiles = lib.mkOption {
+        type = with lib.types; nullOr (functionTo package);
+        default = null;
+        description = "Slot name -> directory with that slot's boot files.";
+      };
+      writeBoot = lib.mkOption {
+        type = lib.types.lines;
+        default = "";
+        description = "Shell: install $src (a slotFiles directory) as slot $slot's boot files; /boot is mounted.";
+      };
+      switch = lib.mkOption {
+        type = lib.types.lines;
+        default = "";
+        description = "Shell: make the bootloader boot slot $slot from now on; /boot is mounted.";
+      };
+    };
+
     partition = {
       enable = lib.mkOption {
         type = lib.types.bool;

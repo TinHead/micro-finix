@@ -7,6 +7,7 @@
     modules.getty
     ./boot
     ./kernel
+    ./micro-update.nix
     ./profile.nix
     ./ssh.nix
     ./storage
