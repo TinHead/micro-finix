@@ -1,0 +1,20 @@
+--- a/src/sig.c
++++ b/src/sig.c
+@@ -361,7 +361,16 @@
+ 		close(fd);
+ 
+ 	if (SHUTDOWN_DEBUG) cprintf("do_shutdown: vfork, child will reboot ...\n");
+-	if (vfork()) {
++	pid_t pid = vfork();
++	if (pid) {
++		/*
++		 * Some libcs implement vfork() as fork() (musl on MIPS,
++		 * PowerPC, ...), so PID 1 is not suspended: it would resume
++		 * with every descriptor closed, its event loop fails and init
++		 * exits before the child reboots. Wait as vfork() would.
++		 */
++		while (pid > 0 && waitpid(pid, NULL, 0) < 0 && errno == EINTR)
++			;
+ 		/*
+ 		 * Put PID 1 aside and let child perform reboot/halt
+ 		 * kernel may exit child and we don't want to exit PID 1

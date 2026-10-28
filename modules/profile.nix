@@ -50,6 +50,17 @@ in
     {
       services.mdevd.enable = lib.mkDefault true;
 
+      # finit's shutdown closes every fd, then relies on vfork() to keep
+      # PID 1 suspended while the child calls reboot(). musl implements
+      # vfork() as fork() on MIPS (and other arches without a vfork.s),
+      # so PID 1 resumed, its event loop failed and init exited: kernel
+      # panic "Attempted to kill init" on every poweroff/reboot.
+      finit.package = lib.mkDefault (
+        pkgs.finit.overrideAttrs (old: {
+          patches = (old.patches or [ ]) ++ [ ../patches/finit-vfork-as-fork.patch ];
+        })
+      );
+
       # finit's pidfile plugin depends on its netlink plugin
       # (plugins/pidfile.c `.depends`); finix copies pidfile.so into the
       # initrd but not netlink.so, so stage 1 logged "Failed loading

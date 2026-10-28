@@ -92,6 +92,13 @@ kernel, image outputs). Both upstreams are MIT.
   once, mdevd dies ("unable to iopause") and stage 1 hangs at
   coldplug. The kernel base turns it on for 32-bit platforms. Debug
   trick: boot the initrd's busybox with `rdinit=<busybox>/bin/sh`.
+- finit's shutdown closes all fds and relies on vfork() suspending
+  PID 1 while the child calls reboot(). musl's vfork() is plain fork()
+  on MIPS (only x86, arm, aarch64, riscv64, s390x, sh have a vfork.s),
+  so PID 1 resumed, its event loop failed and init exited: "Attempted
+  to kill init" on every poweroff/reboot. `patches/finit-vfork-as-fork.patch`
+  (via `finit.package` in the profile) makes the parent wait; worth
+  sending upstream.
 - Finit itself pulls procps (sysctl).
 - finix sets root's shell to `pkgs.bashInteractive` and writes
   `/run/current-system/sw/bin/bash` into passwd without installing it,
@@ -177,9 +184,10 @@ Read job outcomes from the job log, not from indirect signals.
   the MT7621 stand-in; boots image mode in QEMU to a bash login in
   ~20 s (11 MiB RAM used), after fixing the MIPS kernel install and
   32-bit time syscalls (see Gotchas). rustc/userborn built fine for
-  mipsel. `poweroff` unmounted cleanly but then panicked ("Attempted
-  to kill init"); PIIX4 power-off + syscon reboot added, not yet
-  re-tested.
+  mipsel. `poweroff`/`reboot` unmounted cleanly but then panicked
+  ("Attempted to kill init"): finit relies on vfork, which musl/MIPS
+  implements as fork (see Gotchas). Patched, plus Malta PIIX4
+  power-off and syscon reboot; not yet re-tested.
 
 ## Next
 
