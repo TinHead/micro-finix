@@ -86,6 +86,12 @@ kernel, image outputs). Both upstreams are MIT.
   `vmlinuz-<release>`, which isn't built ("cannot stat 'vmlinuz'").
   `modules/kernel` drops the `install` target on MIPS and copies the
   image and System.map to `$out` itself.
+- 32-bit musl calls the legacy time32 syscalls (ppoll, nanosleep, ...)
+  whenever the value fits in 32 bits; `allnoconfig` drops them
+  (`COMPAT_32BIT_TIME`), so they return ENOSYS: `sleep` returns at
+  once, mdevd dies ("unable to iopause") and stage 1 hangs at
+  coldplug. The kernel base turns it on for 32-bit platforms. Debug
+  trick: boot the initrd's busybox with `rdinit=<busybox>/bin/sh`.
 - Finit itself pulls procps (sysctl).
 - finix sets root's shell to `pkgs.bashInteractive` and writes
   `/run/current-system/sw/bin/bash` into passwd without installing it,

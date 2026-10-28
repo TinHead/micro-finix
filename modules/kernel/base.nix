@@ -1,7 +1,12 @@
 # Kconfig baseline every micro-finix system needs: finit, the finix
 # initrd (zstd cpio), devtmpfs, and the usual userspace syscalls.
 # Devices add their buses, drivers and console.
-{ config, lib, ... }:
+{
+  config,
+  pkgs,
+  lib,
+  ...
+}:
 {
   config.micro.kernel.config = lib.mkIf config.micro.kernel.enable (
     lib.mapAttrs (_: lib.mkDefault) {
@@ -59,6 +64,13 @@
 
       IKCONFIG = "y";
       IKCONFIG_PROC = "y";
+    }
+    // lib.optionalAttrs pkgs.stdenv.hostPlatform.is32bit {
+      # 32-bit musl calls the legacy time32 syscalls (ppoll, nanosleep,
+      # clock_gettime, ...) whenever the value fits in 32 bits; without
+      # these they fail with ENOSYS (mdevd: "unable to iopause", sleep
+      # returning at once) and stage 1 hangs at coldplug.
+      COMPAT_32BIT_TIME = "y";
     }
   );
 }
