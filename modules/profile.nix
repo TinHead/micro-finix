@@ -55,9 +55,15 @@ in
       # vfork() as fork() on MIPS (and other arches without a vfork.s),
       # so PID 1 resumed, its event loop failed and init exited: kernel
       # panic "Attempted to kill init" on every poweroff/reboot.
+      # switch-root-watchdog: the initrd's watchdogd (@finit-watchdog)
+      # survived switch_root holding /dev/watchdog, so stage 2's own
+      # crashed in a loop (EBUSY) on boards with a watchdog (Pi).
       finit.package = lib.mkDefault (
         pkgs.finit.overrideAttrs (old: {
-          patches = (old.patches or [ ]) ++ [ ../patches/finit-vfork-as-fork.patch ];
+          patches = (old.patches or [ ]) ++ [
+            ../patches/finit-vfork-as-fork.patch
+            ../patches/finit-switch-root-watchdog.patch
+          ];
         })
       );
 
