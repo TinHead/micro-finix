@@ -150,6 +150,18 @@ in
         fsType = "vfat";
         options = [ "noauto" ];
       };
+
+      # updates mount /boot (micro-update); vfat refuses to mount without
+      # its default codepage and iocharset tables ("codepage cp437 not
+      # found"), which allnoconfig leaves out
+      micro.kernel.config = lib.mkIf config.micro.kernel.enable (
+        lib.mapAttrs (_: lib.mkDefault) {
+          VFAT_FS = "y";
+          NLS = "y";
+          NLS_CODEPAGE_437 = "y";
+          NLS_ISO8859_1 = "y";
+        }
+      );
     })
   ];
 }
