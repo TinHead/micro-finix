@@ -138,13 +138,16 @@
         }
       ];
 
-      # serial and HDMI get kernel messages too; /dev/console is the last
-      # one, the USB gadget port
+      # kernel messages on serial, USB gadget and HDMI; /dev/console (the
+      # last one: finit's and early scripts' output) is the HDMI VT.
+      # Not the gadget port: with no USB host reading it, its buffer fills
+      # and writes block, stalling PID 1 mid-boot (no Wi-Fi unless the
+      # board was plugged into a PC). The login prompt stays on ttyGS0.
       boot.kernelParams = lib.mkBefore [
         "console=ttyS1,115200"
-        "console=tty1"
+        "console=ttyGS0,115200"
       ];
-      micro.console = "ttyGS0";
+      micro.console = "tty1";
       services.getty.ttys = [
         "ttyGS0"
         "tty1"
