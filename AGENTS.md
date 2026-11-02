@@ -166,6 +166,15 @@ kernel, image outputs). Both upstreams are MIT.
   `nix copy --no-check-sigs --from ssh-ng://<builder> <out>`.
 - Eval-checked (not built) for `pkgsCross.muslpi` (ARMv6 Zero) too:
   finit, busybox, iwd, dropbear, dhcpcd, chrony, nftables, mdevd.
+- The cross rustc (needed by userborn) fails for ARMv6 musl:
+  compiler_builtins' naked `bx lr` goes into module-level asm, which
+  LLVM < 23 parses for the bare `arm-` triple (ARMv4, no `bx`); rustc
+  passes target features to module asm only with LLVM >= 23
+  (rust-lang/rust#160594) and nixpkgs builds it against LLVM 21. With
+  fastCross the target std is compiled by the native rustc, so patching
+  rustc's target spec does nothing; `devices/rpi-zerow/rustc-armv6.nix`
+  rewrites `bx lr` in the library source as `.inst 0xe12fff1e`.
+- 32-bit ARM installs DTBs flat in `dtbs/` (arm64: `dtbs/broadcom/`).
 
 ## CI
 
@@ -243,6 +252,11 @@ Read job outcomes from the job log, not from indirect signals.
   authorized keys written at boot). The Zero's radio is a 43436s that
   reports as BCM43430/1; firmware for all Zero 2 W radio variants is
   packaged (and in the initrd). Runs on hardware: on Wi-Fi via iwctl-provisioned credentials, SSH with the user's keys.
+- `rpi-zerow` (ARMv6 Zero W, BCM2835): armv6 musl hard-float
+  (`muslpi` platform), zImage, `bcm2835-rpi-zero-w.dtb`; 32-bit ARM
+  kernel needs MMU, ARCH_MULTI_V6, AEABI, VFP, KUSER_HELPERS listed
+  (allnoconfig drops them). Disk image builds; not booted on hardware
+  yet.
 
 ## Next
 

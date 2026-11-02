@@ -3,4 +3,5 @@
   qemu-mipsel = ./qemu-mipsel;
   dap-x1860 = ./dap-x1860;
   rpi-zero2w = ./rpi-zero2w;
+  rpi-zerow = ./rpi-zerow;
 }
