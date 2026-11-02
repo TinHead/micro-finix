@@ -125,7 +125,8 @@ let
       # one connection (one key touch) per boot, reused by every step
       remote() {
         ssh -o ControlMaster=auto -o ControlPath="$ctl/cm" -o ControlPersist=120 \
-          -o ConnectTimeout=10 "$target" "$@"
+          -o ConnectTimeout=10 -o ServerAliveInterval=5 -o ServerAliveCountMax=3 \
+          "$target" "$@"
       }
 
       # the bundle's own micro-update runs on the device (bash ignores its
@@ -148,7 +149,10 @@ let
       mu switch "$slot"
 
       echo "rebooting into slot $slot"
-      remote reboot || true
+      # detached and delayed, so this ssh returns before the board goes
+      # down; a plain `reboot` leaves the connection half-open (dropbear
+      # dies without closing it) and the client hangs until TCP gives up
+      remote 'nohup sh -c "sleep 2; reboot" >/dev/null 2>&1 </dev/null &' || true
       ssh -o ControlPath="$ctl/cm" -O exit "$target" 2>/dev/null || true
 
       sleep 15
