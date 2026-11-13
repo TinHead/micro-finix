@@ -188,6 +188,13 @@ runners, QEMU or unpacked sources) to the public `micro-finix`
 Cachix cache, which the flake's nixConfig advertises (the home hosts
 use attic through their own nix.conf). One nixpkgs pin's worth is
 under 1 GiB compressed in Cachix (measured 2026-11).
+The push set comes from `ci/realise-build-closure.sh`: every non-FOD
+output of the build closure that cache.nixos.org lacks, substituted or
+built first. Without it the toolchains were never pushed: a build that
+substitutes finished images never puts their compilers in the store,
+and `nix-store -qR --include-outputs` lists only valid paths (the
+mipsel toolchain and aarch64 rustc ended up in no cache at all).
+`DRY_RUN=1` shows what it would fetch/build.
 Requires Actions enabled on the repo, `ATTIC_TOKEN` from the runner and
 the `CACHIX_AUTH_TOKEN` repo secret.
 Read job outcomes from the job log, not from indirect signals.

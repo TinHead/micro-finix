@@ -60,12 +60,12 @@ jobs:
       - name: build closure
         if: github.event_name == 'push'
         run: |
-          # The build-time closure: musl cross toolchains, kernels,
-          # cross-built userland. Built outputs only: no .drv files, no
-          # fixed-output paths (source tarballs).
-          nix-store -qR --include-outputs $(cat drv-paths) | grep -v '\.drv$' > build-closure
-          nix path-info --json --json-format 1 $(cat build-closure) \
-            | jq -r 'to_entries[] | select(.value.ca == null) | .key' > build-closure-built
+          # Every output of the build closure that cache.nixos.org doesn't
+          # serve (cross toolchains, kernels, cross-built packages, the
+          # images), substituted or built so it is in the store: the build
+          # above substitutes finished images, which leaves the compilers
+          # behind them out of the store and out of the caches.
+          ./ci/realise-build-closure.sh drv-paths build-closure-built
 
       - name: push to attic
         if: github.event_name == 'push'
@@ -74,8 +74,7 @@ jobs:
           # -j 2: attic's SQLite index has a single writer
           attic push -j 2 darker:darker $(cat out-paths)
           # all of it: otherwise only the builder's store holds it, and GC drops
-          # unrooted paths, so every week started over from gcc. attic
-          # skips what cache.nixos.org serves.
+          # unrooted paths, so every week started over from gcc
           attic push -j 2 --stdin darker:darker < build-closure-built
 
       - name: push to cachix
