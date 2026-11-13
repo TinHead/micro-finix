@@ -31,6 +31,10 @@ nix derivation show -r $(cat "$drvs") \
   | sed -E 's#(^| )([a-z0-9]{32}-)#\1/nix/store/\2#g' > "$work/drv-outputs"
 
 cut -d' ' -f2 "$work/drv-outputs" | sort -u > "$work/outputs"
+if ! [ -s "$work/outputs" ]; then
+  echo "realise-build-closure: no outputs found for $(wc -l < "$drvs") derivations (are the .drv files in this store?)" >&2
+  exit 1
+fi
 
 # which of them cache.nixos.org serves (the inner sh expands $c)
 # shellcheck disable=SC2016
@@ -40,11 +44,25 @@ sed -E 's#^/nix/store/([a-z0-9]{32})-.*#\1#' "$work/outputs" \
   | sort -u > "$work/upstream-hashes" || true
 grep -v -F -f "$work/upstream-hashes" "$work/outputs" > "$work/ours" || true
 
-# realise the derivations behind missing outputs: all outputs of each
-# (`^*`), so a derivation is substituted or built once, not per output
+# GC roots for everything we push, so the daemon's automatic GC (it runs
+# when free space drops below min-free, e.g. while big toolchains build)
+# can't delete a path between here and the push. Indirect roots in the
+# job's workspace: they go away with it.
+roots=${GCROOTS:-$PWD/.gcroots}
+mkdir -p "$roots"
+root() {
+  while read -r p; do
+    nix-store --add-root "$roots/${p#/nix/store/}" --realise "$p" > /dev/null 2>&1 || true
+  done
+}
+
 xargs nix-store --check-validity --print-invalid < "$work/ours" > "$work/invalid"
 echo "build closure: $(wc -l < "$work/outputs") outputs, $(wc -l < "$work/upstream-hashes") on cache.nixos.org," \
   "$(wc -l < "$work/ours") ours, $(wc -l < "$work/invalid") not in the local store"
+[ -n "${DRY_RUN:-}" ] || grep -v -x -F -f "$work/invalid" "$work/ours" | root
+
+# realise the derivations behind missing outputs: all outputs of each
+# (`^*`), so a derivation is substituted or built once, not per output
 if [ -s "$work/invalid" ]; then
   awk 'NR==FNR { want[$1] = 1; next } ($2 in want) { print $1 "^*" }' \
     "$work/invalid" "$work/drv-outputs" | sort -u > "$work/to-realise"
@@ -56,8 +74,11 @@ if [ -s "$work/invalid" ]; then
              b && /^  \/nix\/store/ { sub(/^  \/nix\/store\/[a-z0-9]*-/, "  build: "); print }' | head -40
     exit 0
   fi
-  # --keep-going: one failure shouldn't stop the rest from being cached
-  xargs nix build --no-link --keep-going --print-build-logs < "$work/to-realise" || true
+  # one invocation (not xargs batches), so Nix schedules all of it in
+  # parallel; --keep-going: one failure shouldn't stop the rest
+  # shellcheck disable=SC2046
+  nix build --no-link --keep-going --print-build-logs $(cat "$work/to-realise") || true
+  root < "$work/invalid"
 fi
 
 # whatever is valid now

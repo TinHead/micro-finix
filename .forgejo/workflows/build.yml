@@ -49,7 +49,11 @@ jobs:
           for t in ${{ matrix.targets }}; do
             attrs="$attrs .#legacyPackages.x86_64-linux.${{ matrix.device }}.config.system.build.$t"
           done
-          nix build --print-build-logs --no-link --print-out-paths $attrs | tee out-paths
+          # --out-link (a GC root in the job's workspace), not --no-link:
+          # the builder's daemon GCs unrooted paths when space runs low, which
+          # deleted finished images before the push step
+          mkdir -p .gcroots
+          nix build --print-build-logs --out-link .gcroots/out --print-out-paths $attrs | tee out-paths
           nix path-info --derivation $attrs > drv-paths
 
       - name: closure size
