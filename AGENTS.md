@@ -284,8 +284,8 @@ Read job outcomes from the job log, not from indirect signals.
 - `rpi-zerow` (ARMv6 Zero W, BCM2835): armv6 musl hard-float
   (`muslpi` platform), zImage, `bcm2835-rpi-zero-w.dtb`; 32-bit ARM
   kernel needs MMU, ARCH_MULTI_V6, AEABI, VFP, KUSER_HELPERS listed
-  (allnoconfig drops them). Disk image builds; not booted on hardware
-  yet.
+  (allnoconfig drops them). Runs on hardware (Wi-Fi, SSH, an MQTT node), A/B updates included
+  (both slots rewritten by deploys).
 
 ## Next
 

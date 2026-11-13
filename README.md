@@ -16,16 +16,68 @@ Kconfig symbols, and flashable disk images.
 
 Licensed under the MIT license (see `LICENSE`).
 
+## Purpose
+
+A very small Linux system, built on musl libc, for very small devices:
+single-purpose boards, routers and access points, sensors and relays.
+Each system does one job, runs from a read-only image (by default) and
+is updated as a whole.
+
+* **Small by default.** musl, busybox, finit as pid 1, a kernel with
+  only the Kconfig symbols the board needs. No PAM, no systemd, no
+  locales, no man pages, no Nix daemon on the device. A Wi-Fi relay
+  node with SSH and an MQTT client is 79 MiB of store on a Pi Zero W
+  (110 MiB on the 64-bit Zero 2 W) and uses 18-26 MiB of RAM.
+* **NixOS-shaped.** finix's modules look like NixOS's (`services.*`,
+  `users.*`, `environment.etc`, `finit.services`), so a configuration
+  reads like one, and everything is built from a flake.
+* **Robust updates.** Image mode: A/B slots with a squashfs store, a
+  tmpfs root and a separate data partition that updates never touch;
+  `nix run .#deploy` streams an update over SSH. Closure mode (a
+  writable ext4 root, NixOS-style) for boards with storage to spare.
+* **Cross-built.** Everything is built on an x86_64 machine; nothing
+  compiles on the device.
+* **musl, not glibc.** Every system uses [musl](https://musl.libc.org/)
+  as its C library, on every architecture: all packages are built from
+  nixpkgs for a `*-linux-musl` target. Most of nixpkgs builds fine for
+  musl, but not all of it, and binaries built against glibc (prebuilt
+  vendor tools, anything downloaded rather than built) won't run.
+  Statically linked or pure Go/Rust programs are the easy case.
+
+What it is **not**: there is no desktop here. No graphics stack, no
+Wayland or X11, no audio, no session management, no package manager on
+the device. It isn't a trimmed-down NixOS either; for a machine with a
+screen and a user, use NixOS (or finix itself).
+
+## Supported devices
+
+| device        | hardware                                          | target (musl)                        | boot            | status                          |
+|---------------|---------------------------------------------------|--------------------------------------|-----------------|---------------------------------|
+| `rpi-zero2w`  | Raspberry Pi Zero 2 W (BCM2710A1, 4x Cortex-A53, 512 MiB) | `aarch64-unknown-linux-musl`         | Pi firmware     | runs on hardware: Wi-Fi, SSH, A/B updates |
+| `rpi-zerow`   | Raspberry Pi Zero W (BCM2835, ARM1176, 512 MiB)   | `armv6l-unknown-linux-musleabihf` (ARMv6KZ, VFPv2 hard-float) | Pi firmware     | runs on hardware: Wi-Fi, SSH, A/B updates |
+| `dap-x1860`   | D-Link DAP-X1860 A1 (MediaTek MT7621A, 256 MiB, NAND) | `mipsel-unknown-linux-musl` (MIPS32r2, soft-float) | U-Boot FIT, from RAM | builds; not run on hardware yet |
+| `qemu-aarch64`| QEMU `virt`                                       | `aarch64-unknown-linux-musl`         | QEMU direct     | boots in QEMU, both update modes |
+| `qemu-mipsel` | QEMU `malta` (24Kc), stand-in for MT7621 routers  | `mipsel-unknown-linux-musl` (MIPS32r2, soft-float) | QEMU direct     | boots in QEMU                   |
+
+Three CPU targets so far: 64-bit ARM, 32-bit ARMv6 and 32-bit
+little-endian MIPS, all with musl as the C library (a glibc platform
+isn't built or tested). Any nixpkgs musl `crossSystem` can be a platform; a new
+board needs a device (kernel symbols, boot backend, storage) more than
+a new architecture. Devices of the same target share one cross
+toolchain.
+
+## Design
+
 The core is hardware-agnostic. Everything that depends on the board is
 a backend selected by options:
 
-| concern       | option                     | backends today            |
-|---------------|----------------------------|---------------------------|
-| CPU / libc    | device `platform`          | any nixpkgs `crossSystem` |
-| kernel        | `micro.kernel.*`           | allnoconfig + attrset     |
-| boot          | `micro.boot.backend`       | `qemu-direct`             |
-| storage       | `micro.storage.layout`     | `block` (MBR)             |
-| updates       | `micro.update.mode`        | `image`, `closure`        |
+| concern       | option                     | backends today                                 |
+|---------------|----------------------------|------------------------------------------------|
+| CPU / libc    | device `platform`          | any nixpkgs `crossSystem`                      |
+| kernel        | `micro.kernel.*`           | allnoconfig + attrset                          |
+| boot          | `micro.boot.backend`       | `qemu-direct`, `rpi-firmware`, `uboot-fit`     |
+| storage       | `micro.storage.layout`     | `block` (MBR), `ram` (store in the initrd)     |
+| updates       | `micro.update.mode`        | `image`, `closure`                             |
 
 ## Layout
 
@@ -37,7 +89,7 @@ modules/update.nix      image (A/B squashfs) vs closure (ext4) mode
 modules/storage/        storage layouts: partitions by name/order; block.nix = MBR disk image
 modules/boot/           boot backends (kernel artifact, optional boot partition, runners)
 devices/<name>/         platform (crossSystem) + hardware module
-                        (qemu-aarch64, qemu-mipsel = MT7621 stand-in)
+                        (see Supported devices)
 examples/               example system configurations (see Examples)
 templates/default/      `nix flake init` template for your own board
 ```
