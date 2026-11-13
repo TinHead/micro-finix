@@ -1,7 +1,8 @@
 # Cross-build each device's example system (QEMU: disk image + runner;
 # U-Boot boards: FIT images) on the big host-mode runner. Pushes to main
-# also push the result to attic so later builds and local runs
-# substitute instead of building.
+# also push the result to attic (everything) and to the public
+# micro-finix.cachix.org (toolchains and packages, not images) so later
+# builds, here and elsewhere, substitute instead of building.
 # The first build compiles the whole musl userland and the kernel.
 name: build
 
@@ -56,18 +57,39 @@ jobs:
           nix path-info -Sh \
             "$(nix eval --raw ".#legacyPackages.x86_64-linux.${{ matrix.device }}.config.system.topLevel")"
 
+      - name: build closure
+        if: github.event_name == 'push'
+        run: |
+          # The build-time closure: musl cross toolchains, kernels,
+          # cross-built userland. Built outputs only: no .drv files, no
+          # fixed-output paths (source tarballs).
+          nix-store -qR --include-outputs $(cat drv-paths) | grep -v '\.drv$' > build-closure
+          nix path-info --json --json-format 1 $(cat build-closure) \
+            | jq -r 'to_entries[] | select(.value.ca == null) | .key' > build-closure-built
+
       - name: push to attic
         if: github.event_name == 'push'
         run: |
           attic login darker "${ATTIC_ENDPOINT:-https://cache.darker.ro}" "$ATTIC_TOKEN" >/dev/null
           # -j 2: attic's SQLite index has a single writer
           attic push -j 2 darker:darker $(cat out-paths)
-          # The build-time closure too (musl cross toolchains, kernels,
-          # cross-built userland): otherwise only the builder's store holds it,
-          # and GC drops unrooted paths, so every week started over from
-          # gcc. Built outputs only: no .drv files, no fixed-output paths
-          # (source tarballs). attic skips what cache.nixos.org serves.
-          nix-store -qR --include-outputs $(cat drv-paths) | grep -v '\.drv$' > build-closure
-          nix path-info --json --json-format 1 $(cat build-closure) \
-            | jq -r 'to_entries[] | select(.value.ca == null) | .key' \
-            | attic push -j 2 --stdin darker:darker
+          # all of it: otherwise only the builder's store holds it, and GC drops
+          # unrooted paths, so every week started over from gcc. attic
+          # skips what cache.nixos.org serves.
+          attic push -j 2 --stdin darker:darker < build-closure-built
+
+      - name: push to cachix
+        if: github.event_name == 'push'
+        env:
+          CACHIX_AUTH_TOKEN: ${{ secrets.CACHIX_AUTH_TOKEN }}
+        run: |
+          # The public cache gets what saves other people hours (cross
+          # toolchains, kernels, cross-built packages), not what is
+          # specific to these example configurations or cheap to redo:
+          # disk and filesystem images, boot/slot artifacts, runners,
+          # QEMU, unpacked source trees. cachix skips what
+          # cache.nixos.org serves.
+          grep -v -E -- '(\.img|\.itb|-micro-rpi-boot|-micro-rpi-slot-|-micro-update-bundle-|-run-micro-vm|-qemu-for-vm-tests-|-source(-[0-9][^/]*)?$|-src$)' \
+            build-closure-built > cachix-paths || true
+          echo "pushing $(wc -l < cachix-paths) paths to micro-finix.cachix.org"
+          nix shell nixpkgs#cachix -c cachix push -j 4 micro-finix < cachix-paths

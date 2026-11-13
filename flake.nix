@@ -1,11 +1,13 @@
 {
   nixConfig = {
+    # CI pushes the cross toolchains, kernels and cross-built packages
+    # here; finix's own cache has its native (glibc) builds
     extra-substituters = [
-      "https://cache.darker.ro/darker"
+      "https://micro-finix.cachix.org"
       "https://finix.cachix.org"
     ];
     extra-trusted-public-keys = [
-      "darker:HE7ECkTcAxepTNmEqloGLMnfGbzOmuvSdzZBEOgx+KY="
+      "micro-finix.cachix.org-1:3ZWDNuYLWhRtA76dc+ZiJnFHPwr/DQgyA3MbyRfBzOo="
       "finix.cachix.org-1:0ejikHDeCp0UErsduUUHcg9IJczY2/h2e5132Z/As/c="
     ];
   };

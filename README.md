@@ -177,7 +177,22 @@ pulls bindgen/clang), which finix hard-wires for user creation.
 
 ## Binary cache
 
-The flake advertises `cache.darker.ro/darker` (CI pushes every build
-from `main` there) and `finix.cachix.org`. The finix cache only holds
-finix's native glibc builds, not the musl cross builds used here. The cache is only reachable from the home network,
-so builds elsewhere fall back to building locally.
+The flake advertises two caches in `nixConfig` (accept them when Nix
+asks, or add them to your `nix.conf`):
+
+* `micro-finix.cachix.org`: CI pushes what every user needs from each
+  build on `main`: the musl cross toolchains (gcc, binutils, rustc),
+  kernels and the cross-built packages, for every device. Disk images
+  and other per-configuration artifacts are left out; they are quick to
+  build once their parts substitute.
+* `finix.cachix.org`: finix's native glibc builds.
+
+```
+substituters = https://micro-finix.cachix.org
+trusted-public-keys = micro-finix.cachix.org-1:3ZWDNuYLWhRtA76dc+ZiJnFHPwr/DQgyA3MbyRfBzOo=
+```
+
+Your own configuration hits the cache as long as micro-finix's
+nixpkgs pin is used (don't make it `follow` yours) and your board uses
+the same device; a changed kernel config or package override rebuilds
+just that part.

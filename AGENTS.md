@@ -158,8 +158,10 @@ kernel, image outputs). Both upstreams are MIT.
   target-prefixed wrapper does). `overlays/micro.nix` puts a shim on
   PATH for all skaware packages.
 - `finix.cachix.org` holds only finix's native glibc builds -- none of
-  the musl cross paths. `cache.darker.ro` is private (not publicly reachable).
-- Attic only gets runtime closures from CI, not the cross toolchains.
+  the musl cross paths; those come from `micro-finix.cachix.org` (see
+  CI). `cache.darker.ro` (attic, everything incl. images) is private; it is no longer in the flake's nixConfig.
+- the builder's store is not a cache: unrooted build outputs are GC'd weekly
+  and come back from attic.
   For iteration without CI or local heavy builds, evaluate on the workstation and
   build on the builder: `nix build --eval-store auto --store
   ssh-ng://<builder> <attr>` (as a trusted user there), then
@@ -180,8 +182,14 @@ kernel, image outputs). Both upstreams are MIT.
 
 `.forgejo/workflows/build.yml` on forge.darker.ro, `runs-on: nixos-big`
 (the builder). Builds each device's example runner + disk image, prints the
-toplevel closure size, pushes to the `darker` attic cache on `main`.
-Requires Actions enabled on the repo and `ATTIC_TOKEN` available to it.
+toplevel closure size, and on `main` pushes the whole build closure to
+the `darker` attic cache and the toolchains/kernels/packages (no images,
+runners, QEMU or unpacked sources) to the public `micro-finix`
+Cachix cache, which the flake's nixConfig advertises (the home hosts
+use attic through their own nix.conf). One nixpkgs pin's worth is
+under 1 GiB compressed in Cachix (measured 2026-11).
+Requires Actions enabled on the repo, `ATTIC_TOKEN` from the runner and
+the `CACHIX_AUTH_TOKEN` repo secret.
 Read job outcomes from the job log, not from indirect signals.
 
 ## Status (2026-10-27)
