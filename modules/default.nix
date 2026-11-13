@@ -6,8 +6,10 @@
   imports = [
     modules.getty
     ./boot
+    ./dns.nix
     ./kernel
     ./micro-update.nix
+    ./ntp.nix
     ./profile.nix
     ./ssh.nix
     ./storage

@@ -252,6 +252,14 @@ Read job outcomes from the job log, not from indirect signals.
   authorized keys written at boot). The Zero's radio is a 43436s that
   reports as BCM43430/1; firmware for all Zero 2 W radio variants is
   packaged (and in the initrd). Runs on hardware: on Wi-Fi via iwctl-provisioned credentials, SSH with the user's keys.
+- Opt-in `micro.dns` (`dhcp`: finix's resolvconf, fed by iwd;
+  `nameservers`/`search`: static /etc/resolv.conf, or prepended to the
+  DHCP ones) and `micro.ntp` (busybox ntpd client, already in the
+  closure; pool.ntp.org by default, warns when the servers are names
+  and no DNS is set). Without `micro.dns` there is no /etc/resolv.conf.
+  On a Zero 2 W the DHCP variant adds only openresolv (~0.1 MiB).
+  Built, not yet booted; busybox ntpd queried the pool from ct1011 with
+  `-w` (no clock change).
 - `rpi-zerow` (ARMv6 Zero W, BCM2835): armv6 musl hard-float
   (`muslpi` platform), zImage, `bcm2835-rpi-zero-w.dtb`; 32-bit ARM
   kernel needs MMU, ARCH_MULTI_V6, AEABI, VFP, KUSER_HELPERS listed
@@ -265,7 +273,11 @@ Read job outcomes from the job log, not from indirect signals.
 2. `rpi-zero2w`: A/B slot switching (config.txt `cmdline=`, or
    `tryboot`/`autoboot.txt` if the Zero 2 W firmware supports it),
    HDMI check, USB dual-role for a keyboard.
-3. DNS (resolvconf for iwd) and NTP on the Wi-Fi devices.
+3. DNS and NTP: options exist (`micro.dns`, `micro.ntp`, both off by
+   default); turn them on for the Wi-Fi hosts and check on hardware
+   that ntpd steps the 2000 clock and iwd's DHCP DNS reaches
+   /etc/resolv.conf. Then maybe keep the last synced time on /var/lib
+   so the clock doesn't restart at 2000 before the network is up.
 4. Deployment (decided: push from the workstation, `nix run .#deploy-<device>`,
    like the servers). Image mode: CI builds the slot artifact (store
    squashfs + that slot's boot files) into attic; the deploy app
