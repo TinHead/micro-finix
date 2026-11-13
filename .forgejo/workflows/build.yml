@@ -65,7 +65,8 @@ jobs:
           # images), substituted or built so it is in the store: the build
           # above substitutes finished images, which leaves the compilers
           # behind them out of the store and out of the caches.
-          ./ci/realise-build-closure.sh drv-paths build-closure-built
+          # (via bash: the runner's checkout doesn't keep the exec bit)
+          bash ci/realise-build-closure.sh drv-paths build-closure-built
 
       - name: push to attic
         if: github.event_name == 'push'
