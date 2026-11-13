@@ -47,7 +47,9 @@
         sources = { inherit openwrt; };
       };
 
-      # example systems, one per device, built on each build system
+      # example systems: `minimal` on every device (legacyPackages.<system>.
+      # <device>), and the other examples on the device they target
+      # (legacyPackages.<system>.examples.<name>)
       legacyPackages = forAllSystems (
         buildSystem:
         lib.mapAttrs (
@@ -57,7 +59,28 @@
             modules = [ ./examples/minimal.nix ];
           }
         ) self.devices
+        // {
+          examples =
+            lib.mapAttrs
+              (
+                name: device:
+                self.lib.microSystem {
+                  inherit device buildSystem;
+                  modules = [ ./examples/${name}.nix ];
+                }
+              )
+              {
+                wifi-node = self.devices.rpi-zero2w;
+                service = self.devices.qemu-aarch64;
+                closure-mode = self.devices.qemu-aarch64;
+              };
+        }
       );
+
+      templates.default = {
+        path = ./templates/default;
+        description = "A board running micro-finix: disk image and SSH deploy";
+      };
 
       formatter = forAllSystems (system: nixpkgs.legacyPackages.${system}.nixfmt-tree);
     };

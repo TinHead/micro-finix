@@ -1,6 +1,8 @@
-# Smallest useful system: console login, nothing else.
+# Smallest useful system: console login, nothing else. The other
+# examples build on it.
+{ lib, ... }:
 {
-  networking.hostName = "micro";
+  networking.hostName = lib.mkDefault "micro";
   services.getty.enable = true;
 
   # password "micro" -- examples only

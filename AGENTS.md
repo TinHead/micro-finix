@@ -204,9 +204,7 @@ Read job outcomes from the job log, not from indirect signals.
   `/var/lib` survive a reboot. The root filesystem is grown to its
   partition at image build time
   (`micro.storage.partitions.<name>.growFilesystem`, on by default for
-  the closure root). Closure mode isn't a flake output yet; build it
-  with `extendModules { modules = [ { micro.update.mode = "closure"; } ]; }`
-  on the example system.
+  the closure root). Built as `examples.closure-mode` (qemu-aarch64).
 - The guest clock starts at 2000 (`RTC_HCTOSYS` is off); fine for
   testing.
 - finit's pidfile plugin depends on its netlink plugin, but finix's

@@ -31,6 +31,14 @@ jobs:
             targets: diskImage
           - device: rpi-zerow
             targets: diskImage
+          # examples/ beyond minimal (`device` is the attribute under
+          # legacyPackages, so these build examples.<name>)
+          - device: examples.service
+            targets: runner diskImage
+          - device: examples.closure-mode
+            targets: runner diskImage
+          - device: examples.wifi-node
+            targets: diskImage
     steps:
       - uses: actions/checkout@v4
 
