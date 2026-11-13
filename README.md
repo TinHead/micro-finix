@@ -1,9 +1,20 @@
 # micro-finix
 
+> [!WARNING]
+> **This code is written with the help of LLMs, under strict human
+> supervision.** Changes are reviewed and tested by a human before they
+> are committed, and two Raspberry Pi Zero boards run it around the
+> clock. Still, read what you deploy, especially anything that touches
+> your boot medium or your secrets. Issues and corrections are welcome.
+
+An unofficial project built on
 [finix](https://github.com/finix-community/finix) (finit as pid 1,
-NixOS-shaped modules) built the way [Liminix](https://www.liminix.org/)
-builds router firmware: cross-compiled musl userland, a minimal kernel
-from an attrset of Kconfig symbols, and flashable disk images.
+NixOS-shaped modules), not part of it. It builds finix the way
+[Liminix](https://www.liminix.org/) builds router firmware:
+cross-compiled musl userland, a minimal kernel from an attrset of
+Kconfig symbols, and flashable disk images.
+
+Licensed under the MIT license (see `LICENSE`).
 
 The core is hardware-agnostic. Everything that depends on the board is
 a backend selected by options:
@@ -27,7 +38,8 @@ modules/storage/        storage layouts: partitions by name/order; block.nix = M
 modules/boot/           boot backends (kernel artifact, optional boot partition, runners)
 devices/<name>/         platform (crossSystem) + hardware module
                         (qemu-aarch64, qemu-mipsel = MT7621 stand-in)
-examples/               example system configurations
+examples/               example system configurations (see Examples)
+templates/default/      `nix flake init` template for your own board
 ```
 
 ## Devices
@@ -69,8 +81,43 @@ nix build .#legacyPackages.x86_64-linux.qemu-aarch64.config.system.build.runner
 
 # raw disk image
 nix build .#legacyPackages.x86_64-linux.qemu-aarch64.config.system.build.diskImage
+```
 
-# your own system
+## Examples
+
+`examples/minimal.nix` (console login, root / micro) is built for every
+device as `legacyPackages.x86_64-linux.<device>`. The others build on
+it and target one device each, as
+`legacyPackages.x86_64-linux.examples.<name>`:
+
+| example        | device       | shows                                                     |
+|----------------|--------------|-----------------------------------------------------------|
+| `wifi-node`    | rpi-zero2w   | Wi-Fi (iwd), DNS from DHCP, NTP, SSH keys; where Wi-Fi credentials go |
+| `service`      | qemu-aarch64 | your own finit service: busybox httpd + CGI, state on `/var/lib` |
+| `closure-mode` | qemu-aarch64 | writable ext4 root instead of A/B images                  |
+
+```sh
+nix build .#legacyPackages.x86_64-linux.examples.service.config.system.build.runner
+./result/bin/run-micro-vm a
+# root / micro, then: wget -qO- http://127.0.0.1/cgi-bin/status
+```
+
+## Your own board
+
+Start from the template: a flake with one board, a card image with its
+secrets, and an SSH deploy app.
+
+```sh
+mkdir my-board && cd my-board
+nix flake init -t <micro-finix flake URL>
+# edit configuration.nix (and the device in flake.nix), then
+nix run .#image -- my-board.img    # dd it to the card, then delete it
+nix run .#deploy -- root@<board>   # later updates, A/B over SSH
+```
+
+Or call the library directly:
+
+```nix
 micro-finix.lib.microSystem {
   device = micro-finix.devices.qemu-aarch64;
   modules = [ ./configuration.nix ];
@@ -79,6 +126,36 @@ micro-finix.lib.microSystem {
 
 Finix service modules are opt-in: import them from the `modules`
 argument, e.g. `imports = [ modules.dropbear ];`.
+
+## Secrets
+
+Everything in the configuration lands in the Nix store, which is
+world-readable on the device and usually pushed to a binary cache.
+Secrets (Wi-Fi passphrases, password hashes, tokens) are files on the
+data partition instead, declared with a command that prints them. The
+command runs on your machine, at image or deploy time, so it can use
+whatever holds your secrets:
+
+```nix
+micro.secrets.packages = [ pkgs.buildPackages.sops ];
+micro.secrets.files."iwd/MyNetwork.psk" = {
+  command = "sops -d --extract '[\"wifi\"]' ${./secrets.yaml}";
+  prefix = "[Security]\nPassphrase=";
+  suffix = "\n";
+  # mode = "0600"; uid = 0; gid = 0;   (the defaults)
+};
+```
+
+| output                       | does                                                   |
+|------------------------------|--------------------------------------------------------|
+| `system.build.provisionImage` | `provision-image <file.img>`: disk image with the files on its data partition |
+| `system.build.pushSecrets`    | `push-secrets <ssh-target>`: write them on a running board |
+| `system.build.renderSecrets`  | `render-secrets <dir>`: write them to a local directory |
+| `system.build.deploy`         | runs `push-secrets` before every A/B update            |
+
+Updates never touch the data partition, so the files stay put. Point
+options at them, e.g. `users.users.root.passwordFile =
+"/var/lib/secrets/root.hash"`.
 
 ## Kernel
 
