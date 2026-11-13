@@ -7,7 +7,8 @@
 #                                  (+ size, sha256), each slot's boot files
 #   system.build.deploy            `deploy <ssh-target>` from the build
 #                                  machine: stream the bundle into the
-#                                  inactive slot, switch, reboot, check
+#                                  inactive slot, switch, reboot, check;
+#                                  micro.secrets are pushed first
 #
 # Active when the boot backend provides micro.boot.update (slot files
 # and the switch). No automatic rollback yet: the old slot stays intact
@@ -120,6 +121,10 @@ let
     text = ''
       target=''${1:?usage: deploy <ssh-target> (e.g. root@192.0.2.10)}
       bundle=${bundle}
+      ${lib.optionalString (config.micro.secrets.files != { }) ''
+        # micro.secrets first: they may change without the system changing
+        ${config.system.build.pushSecrets}/bin/push-secrets "$target"
+      ''}
       ctl=$(mktemp -d)
       trap 'ssh -o ControlPath="$ctl/cm" -O exit "$target" 2>/dev/null || true; rm -rf "$ctl"' EXIT
       # one connection (one key touch) per boot, reused by every step

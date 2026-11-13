@@ -260,6 +260,14 @@ Read job outcomes from the job log, not from indirect signals.
   On a Zero 2 W the DHCP variant adds only openresolv (~0.1 MiB).
   Built, not yet booted; busybox ntpd queried the pool from ct1011 with
   `-w` (no clock change).
+- `micro.secrets` (modules/secrets.nix): files on the data partition
+  from a command run on the deploying machine (sops, pass, cat, ...),
+  never in the store. `provisionImage` writes them into a copy of the
+  disk image (debugfs on the ext4 data partition), `pushSecrets` over
+  SSH (busybox `tar -x -o`, then chown/chmod per file; existing parent
+  dirs untouched, new ones 0755), `deploy` pushes before updating.
+  Tested: provision-image + QEMU boot (modes, owners, a path with a
+  space, a service reading its file), push-secrets against busybox tar.
 - `rpi-zerow` (ARMv6 Zero W, BCM2835): armv6 musl hard-float
   (`muslpi` platform), zImage, `bcm2835-rpi-zero-w.dtb`; 32-bit ARM
   kernel needs MMU, ARCH_MULTI_V6, AEABI, VFP, KUSER_HELPERS listed

@@ -11,6 +11,7 @@
     ./micro-update.nix
     ./ntp.nix
     ./profile.nix
+    ./secrets.nix
     ./ssh.nix
     ./storage
     ./update.nix
