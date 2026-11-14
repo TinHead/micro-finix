@@ -194,7 +194,10 @@ built first. Without it the toolchains were never pushed: a build that
 substitutes finished images never puts their compilers in the store,
 and `nix-store -qR --include-outputs` lists only valid paths (the
 mipsel toolchain and aarch64 rustc ended up in no cache at all).
-`DRY_RUN=1` shows what it would fetch/build.
+`DRY_RUN=1` shows what it would fetch/build. Exposed as
+`packages.<system>.realise-build-closure` (CI runs it with `nix run`);
+Downstream flakes can use it via
+`nix run --inputs-from . micro-finix#realise-build-closure`.
 Requires Actions enabled on the repo, `ATTIC_TOKEN` from the runner and
 the `CACHIX_AUTH_TOKEN` repo secret.
 Read job outcomes from the job log, not from indirect signals.

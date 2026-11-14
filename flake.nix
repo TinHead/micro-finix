@@ -84,6 +84,29 @@
         description = "A board running micro-finix: disk image and SSH deploy";
       };
 
+      # CI helper, also used by flakes that build micro-finix systems:
+      # `realise-build-closure <drv-paths file> <out file>` (see the
+      # script). Uses the caller's nix.
+      packages = forAllSystems (system: {
+        realise-build-closure =
+          let
+            pkgs = nixpkgs.legacyPackages.${system};
+          in
+          pkgs.writeShellApplication {
+            name = "realise-build-closure";
+            runtimeInputs = with pkgs; [
+              coreutils
+              curl
+              findutils
+              gawk
+              gnugrep
+              gnused
+              jq
+            ];
+            text = builtins.readFile ./ci/realise-build-closure.sh;
+          };
+      });
+
       formatter = forAllSystems (system: nixpkgs.legacyPackages.${system}.nixfmt-tree);
     };
 }
