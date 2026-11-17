@@ -1,5 +1,7 @@
 # micro-finix
 
+This repo is a mirror of my own forge, any contributions will be merged back in there if those pass validation.
+
 > [!WARNING]
 > **This code is written with the help of LLMs, under strict human
 > supervision.** Changes are reviewed and tested by a human before they
