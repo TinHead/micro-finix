@@ -1,2 +1,9 @@
 result*
 micro-vm/
+.devenv/
+.devenv.flake.nix
+.direnv/
+.mcp.json
+.claude/settings.json
+.env
+devenv.local.nix
