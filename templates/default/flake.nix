@@ -3,7 +3,7 @@
 
   inputs = {
     # change to wherever you get micro-finix from
-    micro-finix.url = "git+https://forge.darker.ro/darker/micro-finix";
+    micro-finix.url = "github:TinHead/micro-finix";
     # Don't make micro-finix follow your own nixpkgs: it is pinned to
     # finix's nixpkgs, and a different pin means building another musl
     # cross toolchain from scratch.

@@ -180,8 +180,12 @@ kernel, image outputs). Both upstreams are MIT.
 
 ## CI
 
-`.forgejo/workflows/build.yml` on forge.darker.ro, `runs-on: nixos-big`
-(the builder). Builds each device's example runner + disk image, prints the
+`.forgejo/workflows/build.yml` on a private Forgejo, `runs-on: nixos-big`
+(the builder). The public repo is GitHub (TinHead/micro-finix), a push
+mirror of the forge: merge on the forge, never on GitHub. Approved
+GitHub PRs reach the forge as `gh-pr/<n>` branches and get built (never
+cached); the result comes back as the `forgejo-ci` status on the PR.
+Outside contributors' PRs need the `ci-ok` label per commit. Builds each device's example runner + disk image, prints the
 toplevel closure size, and on `main` pushes the whole build closure to
 the `darker` attic cache and the toolchains/kernels/packages (no images,
 runners, QEMU or unpacked sources) to the public `micro-finix`
